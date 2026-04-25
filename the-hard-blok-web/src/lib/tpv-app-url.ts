@@ -7,6 +7,15 @@ export function getTpvAppBaseUrl(): string {
   if (typeof v === 'string' && v.length > 0) {
     return v.replace(/\/$/, '')
   }
+
+  // Fallback local inteligente para entornos sin .env:
+  // web:3001 -> tpv:3000, web:4174 -> tpv:4173 (preview).
+  if (typeof window !== 'undefined' && window.location.hostname) {
+    const { protocol, hostname, port } = window.location
+    if (port === '3001') return `${protocol}//${hostname}:3000`
+    if (port === '4174') return `${protocol}//${hostname}:4173`
+  }
+
   return 'http://localhost:3000'
 }
 
