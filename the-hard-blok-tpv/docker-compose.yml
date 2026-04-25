@@ -1,0 +1,25 @@
+# PostgreSQL local sin instalar el servidor en Windows.
+# Requisito: Docker Desktop (https://www.docker.com/products/docker-desktop/)
+#
+#   npm run db:up
+#   npm run db:schema
+#   npm run db:auth-migrate
+#
+# Credenciales alineadas con .env por defecto (postgres/postgres, BD the_hard_blok_tpv).
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: the-hard-blok-tpv-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: the_hard_blok_tpv
+    ports:
+      - "5432:5432"
+    volumes:
+      - thb_tpv_pgdata:/var/lib/postgresql/data
+
+volumes:
+  thb_tpv_pgdata:
