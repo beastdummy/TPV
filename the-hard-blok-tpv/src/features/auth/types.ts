@@ -1,6 +1,13 @@
 export const ROLE_VALUES = ["owner", "admin", "manager", "cashier"] as const;
 
 export type Role = (typeof ROLE_VALUES)[number];
+export const CATALOG_MANAGEMENT_ROLES: Role[] = ["owner", "admin", "manager"];
+export const POS_OPERATION_ROLES: Role[] = [
+	"owner",
+	"admin",
+	"manager",
+	"cashier",
+];
 
 export type AuthUser = {
 	id: string;

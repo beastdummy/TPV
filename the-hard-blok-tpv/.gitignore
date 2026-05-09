@@ -17,3 +17,4 @@ dist-ssr
 .vinxi
 __unconfig*
 todos.json
+.vercel

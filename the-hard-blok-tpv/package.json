@@ -16,8 +16,11 @@
     "db:auth-migrate": "node --env-file=.env ./node_modules/auth/dist/index.mjs migrate -y --config ./src/lib/auth.config.ts",
     "db:schema": "node --env-file=.env ./scripts/apply-sql.mjs ./db/schema.sql",
     "db:seed": "node --env-file=.env ./scripts/apply-sql.mjs ./db/seed_admin.sql",
-    "db:up": "docker compose up -d",
-    "db:down": "docker compose down"
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose stop postgres",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f app"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",
@@ -42,6 +45,7 @@
     "tailwind-merge": "^3.0.2",
     "tailwindcss": "^4.1.18",
     "tw-animate-css": "^1.3.6",
+    "xlsx": "^0.18.5",
     "zod": "^4.3.6"
   },
   "devDependencies": {

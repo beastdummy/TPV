@@ -1,102 +1,22 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { AppShell } from "../components/layout/app-shell";
-import { getAppUserFn } from "../features/auth/auth.rpc";
-import { openCashDrawerFn } from "../features/sales/server-fns";
+import { requireRoleForRoute } from "../features/auth/route-guards";
+import { POS_OPERATION_ROLES } from "../features/auth/types";
+import { getSalesCatalogFn, openCashDrawerFn } from "../features/sales/server-fns";
 import { useTicket } from "../features/sales/use-ticket";
 
 export const Route = createFileRoute("/sales")({
 	beforeLoad: async ({ location }) => {
-		const user = await getAppUserFn();
-		if (!user) {
-			throw redirect({ to: "/login", search: { redirect: location.href } });
-		}
+		await requireRoleForRoute(POS_OPERATION_ROLES, location.href);
 	},
+	loader: async () => await getSalesCatalogFn(),
 	component: SalesPage,
 });
 
-/**
- * =========================================================
- * CONFIGURACIÓN DE FAMILIAS
- * ---------------------------------------------------------
- * Aquí puedes:
- * - cambiar el nombre de la familia
- * - cambiar la descripción
- * - cambiar el id
- * =========================================================
- */
-const families = [
-	{
-		id: "soft-drinks",
-		name: "Refrescos",
-		description: "Bebidas frías sin alcohol",
-	},
-	{
-		id: "beer",
-		name: "Cervezas",
-		description: "Rubias, tostadas y especiales",
-	},
-	{
-		id: "wine",
-		name: "Vinos",
-		description: "Tintos, blancos y rosados",
-	},
-	{
-		id: "cocktails",
-		name: "Cócteles",
-		description: "Mezclas y combinaciones preparadas",
-	},
-	{
-		id: "coffee",
-		name: "Cafés",
-		description: "Café solo, con leche y variantes",
-	},
-	{
-		id: "spirits",
-		name: "Copas",
-		description: "Destilados y copas premium",
-	},
-] as const;
-
-/**
- * =========================================================
- * CONFIGURACIÓN DE PRODUCTOS
- * ---------------------------------------------------------
- * Aquí puedes editar:
- * - name: nombre visible
- * - price: precio
- * - image: ruta futura de imagen
- * - familyId: familia a la que pertenece
- * =========================================================
- */
-const products = [
-	{
-		id: "1",
-		name: "Coca-Cola",
-		price: 2.5,
-		image: "",
-		familyId: "soft-drinks",
-	},
-	{ id: "2", name: "Fanta", price: 2.5, image: "", familyId: "soft-drinks" },
-	{ id: "3", name: "Tónica", price: 2.2, image: "", familyId: "soft-drinks" },
-	{ id: "4", name: "Sprite", price: 2.5, image: "", familyId: "soft-drinks" },
-
-	{ id: "5", name: "Cerveza", price: 3, image: "", familyId: "beer" },
-
-	{ id: "6", name: "Copa premium", price: 8.5, image: "", familyId: "spirits" },
-
-	{ id: "7", name: "Café Solo", price: 1.4, image: "", familyId: "coffee" },
-	{
-		id: "8",
-		name: "Café con leche",
-		price: 1.8,
-		image: "",
-		familyId: "coffee",
-	},
-] as const;
-
 function SalesPage() {
+	const { categories, products } = Route.useLoaderData();
 	const {
 		items,
 		addItem,
@@ -117,8 +37,9 @@ function SalesPage() {
 	 * Cambia la categoría inicial si quieres abrir otra por defecto.
 	 * =========================================================
 	 */
-	const [activeFamilyId, setActiveFamilyId] =
-		useState<(typeof families)[number]["id"]>("soft-drinks");
+	const [activeFamilyId, setActiveFamilyId] = useState<string>(
+		() => categories[0]?.id ?? "",
+	);
 	const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 	const [keypadValue, setKeypadValue] = useState("0");
 	const [actionMessage, setActionMessage] = useState<string | null>(null);
@@ -127,11 +48,28 @@ function SalesPage() {
 		null,
 	);
 
+	useEffect(() => {
+		if (!categories.length) {
+			if (activeFamilyId !== "") {
+				setActiveFamilyId("");
+			}
+			return;
+		}
+
+		const isActiveCategoryValid = categories.some(
+			(category) => category.id === activeFamilyId,
+		);
+
+		if (!isActiveCategoryValid) {
+			setActiveFamilyId(categories[0].id);
+		}
+	}, [activeFamilyId, categories]);
+
 	const activeFamily =
-		families.find((family) => family.id === activeFamilyId) ?? families[0];
+		categories.find((family) => family.id === activeFamilyId) ?? categories[0] ?? null;
 
 	const filteredProducts = products.filter(
-		(product) => product.familyId === activeFamilyId,
+		(product) => product.category_id === activeFamilyId,
 	);
 
 	const subtotal = getTotal();
@@ -555,7 +493,7 @@ function SalesPage() {
 						</div>
 
 						<div className="grid grid-cols-3 gap-3">
-							{families.map((family) => {
+							{categories.map((family) => {
 								const isActive = family.id === activeFamilyId;
 
 								return (
@@ -593,7 +531,9 @@ function SalesPage() {
 							<p className="text-sm text-muted-foreground">Productos</p>
 							<h2 className="text-lg font-semibold">Selección rápida</h2>
 							<p className="mt-1 text-sm text-muted-foreground">
-								Mostrando productos de la categoría {activeFamily.name}
+								{activeFamily
+									? `Mostrando productos de la categoría ${activeFamily.name}`
+									: "No hay categorías activas para mostrar productos."}
 							</p>
 						</div>
 
@@ -610,9 +550,9 @@ function SalesPage() {
 									className="w-29.5 rounded-3xl border bg-background p-2 text-left transition hover:bg-muted"
 								>
 									<div className="aspect-square overflow-hidden rounded-2xl bg-muted">
-										{product.image ? (
+										{product.image_url ? (
 											<img
-												src={product.image}
+												src={product.image_url}
 												alt={product.name}
 												className="h-full w-full object-cover"
 											/>

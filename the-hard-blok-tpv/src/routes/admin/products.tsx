@@ -15,10 +15,11 @@ import {
 } from "../../features/admin/server-fns";
 import type { Category, Product } from "../../features/admin/types";
 import { requireRoleForRoute } from "../../features/auth/route-guards";
+import { CATALOG_MANAGEMENT_ROLES } from "../../features/auth/types";
 
 export const Route = createFileRoute("/admin/products")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(["owner", "admin", "manager"], location.href);
+		await requireRoleForRoute(CATALOG_MANAGEMENT_ROLES, location.href);
 	},
 	loader: async () => {
 		const [categories, products] = await Promise.all([
@@ -119,16 +120,26 @@ function AdminProductsPage() {
 
 				<div className="divide-y">
 					{products.map((product: Product) => (
-						<button
+						<div
 							key={product.id}
-							type="button"
 							onClick={() =>
 								navigate({
 									to: "/admin/products/$productId/edit",
 									params: { productId: String(product.id) },
 								})
 							}
+							onKeyDown={(event) => {
+								if (event.key === "Enter" || event.key === " ") {
+									event.preventDefault();
+									navigate({
+										to: "/admin/products/$productId/edit",
+										params: { productId: String(product.id) },
+									});
+								}
+							}}
 							className="grid w-full grid-cols-[70px_1.6fr_1fr_120px_90px_120px_90px_110px_90px] gap-3 px-4 py-3 text-left text-sm transition hover:bg-muted/40"
+							role="button"
+							tabIndex={0}
 						>
 							<div className="flex items-center">
 								<span className="rounded-lg border px-2 py-1 text-xs text-muted-foreground">
@@ -189,7 +200,7 @@ function AdminProductsPage() {
 									<Trash2 className="h-4 w-4" />
 								</button>
 							</div>
-						</button>
+						</div>
 					))}
 				</div>
 			</div>

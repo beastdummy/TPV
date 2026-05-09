@@ -1,11 +1,11 @@
-# PostgreSQL local sin instalar el servidor en Windows.
+# Stack Docker para TPV + Postgres.
 # Requisito: Docker Desktop (https://www.docker.com/products/docker-desktop/)
 #
-#   npm run db:up
-#   npm run db:schema
-#   npm run db:auth-migrate
+#   docker compose up -d --build
+#   docker compose logs -f app
 #
-# Credenciales alineadas con .env por defecto (postgres/postgres, BD the_hard_blok_tpv).
+# App:      http://localhost:3000
+# Postgres: localhost:5432
 
 services:
   postgres:
@@ -20,6 +20,31 @@ services:
       - "5432:5432"
     volumes:
       - thb_tpv_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d the_hard_blok_tpv"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: the-hard-blok-tpv-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
+      DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@postgres:5432/the_hard_blok_tpv}
+    ports:
+      - "3000:3000"
 
 volumes:
   thb_tpv_pgdata:

@@ -1,5 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { FolderTree, Package, PlusCircle } from "lucide-react";
+import {
+	Boxes,
+	FolderTree,
+	Package,
+	PlusCircle,
+	ShoppingCart,
+	Warehouse,
+} from "lucide-react";
 
 import { AdminShell } from "../../components/layout/admin-shell";
 import {
@@ -8,10 +15,11 @@ import {
 } from "../../features/admin/server-fns";
 import type { Category, Product } from "../../features/admin/types";
 import { requireRoleForRoute } from "../../features/auth/route-guards";
+import { CATALOG_MANAGEMENT_ROLES } from "../../features/auth/types";
 
 export const Route = createFileRoute("/admin/")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(["owner", "admin", "manager"], location.href);
+		await requireRoleForRoute(CATALOG_MANAGEMENT_ROLES, location.href);
 	},
 	loader: async () => {
 		const [categories, products] = await Promise.all([
@@ -99,6 +107,60 @@ function AdminIndexPage() {
 							<p className="mt-2 text-sm text-muted-foreground">
 								Controla precios, categorías, estado activo e imágenes del
 								catálogo.
+							</p>
+						</div>
+					</div>
+				</Link>
+
+				<Link
+					to="/admin/warehouses"
+					className="rounded-3xl border bg-background p-6 transition hover:bg-muted/50"
+				>
+					<div className="flex items-start gap-4">
+						<div className="rounded-2xl border bg-card p-3">
+							<Warehouse className="h-5 w-5" />
+						</div>
+
+						<div>
+							<h2 className="text-lg font-semibold">Gestionar almacenes</h2>
+							<p className="mt-2 text-sm text-muted-foreground">
+								Define ubicaciones y controla stock por producto.
+							</p>
+						</div>
+					</div>
+				</Link>
+
+				<Link
+					to="/admin/purchases"
+					className="rounded-3xl border bg-background p-6 transition hover:bg-muted/50"
+				>
+					<div className="flex items-start gap-4">
+						<div className="rounded-2xl border bg-card p-3">
+							<ShoppingCart className="h-5 w-5" />
+						</div>
+
+						<div>
+							<h2 className="text-lg font-semibold">Gestionar compras</h2>
+							<p className="mt-2 text-sm text-muted-foreground">
+								Registra proveedores y entradas de compra con impacto en stock.
+							</p>
+						</div>
+					</div>
+				</Link>
+
+				<Link
+					to="/admin/inventory"
+					className="rounded-3xl border bg-background p-6 transition hover:bg-muted/50"
+				>
+					<div className="flex items-start gap-4">
+						<div className="rounded-2xl border bg-card p-3">
+							<Boxes className="h-5 w-5" />
+						</div>
+
+						<div>
+							<h2 className="text-lg font-semibold">Inventario detallado</h2>
+							<p className="mt-2 text-sm text-muted-foreground">
+								Control por lote, serie y caducidad con exportación.
 							</p>
 						</div>
 					</div>

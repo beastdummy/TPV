@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, LogOut, Receipt, Settings } from "lucide-react";
+import { LayoutDashboard, LogOut, Receipt, Settings, ShieldCheck } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { authClient } from "../../lib/auth-client";
@@ -12,6 +12,7 @@ type AppShellProps = {
 const navigation = [
 	{ to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
 	{ to: "/sales", label: "Ventas", icon: Receipt },
+	{ to: "/admin", label: "Admin", icon: ShieldCheck },
 ];
 
 export function AppShell({ title, children }: AppShellProps) {

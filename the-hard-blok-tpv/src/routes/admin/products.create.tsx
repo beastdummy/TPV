@@ -9,10 +9,11 @@ import {
 } from "../../features/admin/server-fns";
 import type { Category } from "../../features/admin/types";
 import { requireRoleForRoute } from "../../features/auth/route-guards";
+import { CATALOG_MANAGEMENT_ROLES } from "../../features/auth/types";
 
 export const Route = createFileRoute("/admin/products/create")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(["owner", "admin", "manager"], location.href);
+		await requireRoleForRoute(CATALOG_MANAGEMENT_ROLES, location.href);
 	},
 	loader: async () => {
 		const categories = await getCategoriesFn();

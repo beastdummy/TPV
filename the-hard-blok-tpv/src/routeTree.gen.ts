@@ -15,8 +15,12 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminWarehousesRouteImport } from './routes/admin/warehouses'
+import { Route as AdminPurchasesRouteImport } from './routes/admin/purchases'
 import { Route as AdminProductsRouteImport } from './routes/admin/products'
+import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminCategoriesRouteImport } from './routes/admin/categories'
+import { Route as ApiMeDashboardRouteImport } from './routes/api/me/dashboard'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AdminProductsCreateRouteImport } from './routes/admin/products.create'
 import { Route as AdminProductsProductIdEditRouteImport } from './routes/admin/products.$productId.edit'
@@ -51,14 +55,34 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminWarehousesRoute = AdminWarehousesRouteImport.update({
+  id: '/admin/warehouses',
+  path: '/admin/warehouses',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminPurchasesRoute = AdminPurchasesRouteImport.update({
+  id: '/admin/purchases',
+  path: '/admin/purchases',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminProductsRoute = AdminProductsRouteImport.update({
   id: '/admin/products',
   path: '/admin/products',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminInventoryRoute = AdminInventoryRouteImport.update({
+  id: '/admin/inventory',
+  path: '/admin/inventory',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminCategoriesRoute = AdminCategoriesRouteImport.update({
   id: '/admin/categories',
   path: '/admin/categories',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMeDashboardRoute = ApiMeDashboardRouteImport.update({
+  id: '/api/me/dashboard',
+  path: '/api/me/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -85,10 +109,14 @@ export interface FileRoutesByFullPath {
   '/pin': typeof PinRoute
   '/sales': typeof SalesRoute
   '/admin/categories': typeof AdminCategoriesRoute
+  '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
+  '/admin/purchases': typeof AdminPurchasesRoute
+  '/admin/warehouses': typeof AdminWarehousesRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/products/create': typeof AdminProductsCreateRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/me/dashboard': typeof ApiMeDashboardRoute
   '/admin/products/$productId/edit': typeof AdminProductsProductIdEditRoute
 }
 export interface FileRoutesByTo {
@@ -98,10 +126,14 @@ export interface FileRoutesByTo {
   '/pin': typeof PinRoute
   '/sales': typeof SalesRoute
   '/admin/categories': typeof AdminCategoriesRoute
+  '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
+  '/admin/purchases': typeof AdminPurchasesRoute
+  '/admin/warehouses': typeof AdminWarehousesRoute
   '/admin': typeof AdminIndexRoute
   '/admin/products/create': typeof AdminProductsCreateRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/me/dashboard': typeof ApiMeDashboardRoute
   '/admin/products/$productId/edit': typeof AdminProductsProductIdEditRoute
 }
 export interface FileRoutesById {
@@ -112,10 +144,14 @@ export interface FileRoutesById {
   '/pin': typeof PinRoute
   '/sales': typeof SalesRoute
   '/admin/categories': typeof AdminCategoriesRoute
+  '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
+  '/admin/purchases': typeof AdminPurchasesRoute
+  '/admin/warehouses': typeof AdminWarehousesRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/products/create': typeof AdminProductsCreateRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/me/dashboard': typeof ApiMeDashboardRoute
   '/admin/products/$productId/edit': typeof AdminProductsProductIdEditRoute
 }
 export interface FileRouteTypes {
@@ -127,10 +163,14 @@ export interface FileRouteTypes {
     | '/pin'
     | '/sales'
     | '/admin/categories'
+    | '/admin/inventory'
     | '/admin/products'
+    | '/admin/purchases'
+    | '/admin/warehouses'
     | '/admin/'
     | '/admin/products/create'
     | '/api/auth/$'
+    | '/api/me/dashboard'
     | '/admin/products/$productId/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -140,10 +180,14 @@ export interface FileRouteTypes {
     | '/pin'
     | '/sales'
     | '/admin/categories'
+    | '/admin/inventory'
     | '/admin/products'
+    | '/admin/purchases'
+    | '/admin/warehouses'
     | '/admin'
     | '/admin/products/create'
     | '/api/auth/$'
+    | '/api/me/dashboard'
     | '/admin/products/$productId/edit'
   id:
     | '__root__'
@@ -153,10 +197,14 @@ export interface FileRouteTypes {
     | '/pin'
     | '/sales'
     | '/admin/categories'
+    | '/admin/inventory'
     | '/admin/products'
+    | '/admin/purchases'
+    | '/admin/warehouses'
     | '/admin/'
     | '/admin/products/create'
     | '/api/auth/$'
+    | '/api/me/dashboard'
     | '/admin/products/$productId/edit'
   fileRoutesById: FileRoutesById
 }
@@ -167,9 +215,13 @@ export interface RootRouteChildren {
   PinRoute: typeof PinRoute
   SalesRoute: typeof SalesRoute
   AdminCategoriesRoute: typeof AdminCategoriesRoute
+  AdminInventoryRoute: typeof AdminInventoryRoute
   AdminProductsRoute: typeof AdminProductsRouteWithChildren
+  AdminPurchasesRoute: typeof AdminPurchasesRoute
+  AdminWarehousesRoute: typeof AdminWarehousesRoute
   AdminIndexRoute: typeof AdminIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiMeDashboardRoute: typeof ApiMeDashboardRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -216,6 +268,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/warehouses': {
+      id: '/admin/warehouses'
+      path: '/admin/warehouses'
+      fullPath: '/admin/warehouses'
+      preLoaderRoute: typeof AdminWarehousesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/purchases': {
+      id: '/admin/purchases'
+      path: '/admin/purchases'
+      fullPath: '/admin/purchases'
+      preLoaderRoute: typeof AdminPurchasesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/products': {
       id: '/admin/products'
       path: '/admin/products'
@@ -223,11 +289,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminProductsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/inventory': {
+      id: '/admin/inventory'
+      path: '/admin/inventory'
+      fullPath: '/admin/inventory'
+      preLoaderRoute: typeof AdminInventoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/categories': {
       id: '/admin/categories'
       path: '/admin/categories'
       fullPath: '/admin/categories'
       preLoaderRoute: typeof AdminCategoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/me/dashboard': {
+      id: '/api/me/dashboard'
+      path: '/api/me/dashboard'
+      fullPath: '/api/me/dashboard'
+      preLoaderRoute: typeof ApiMeDashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
@@ -275,9 +355,13 @@ const rootRouteChildren: RootRouteChildren = {
   PinRoute: PinRoute,
   SalesRoute: SalesRoute,
   AdminCategoriesRoute: AdminCategoriesRoute,
+  AdminInventoryRoute: AdminInventoryRoute,
   AdminProductsRoute: AdminProductsRouteWithChildren,
+  AdminPurchasesRoute: AdminPurchasesRoute,
+  AdminWarehousesRoute: AdminWarehousesRoute,
   AdminIndexRoute: AdminIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiMeDashboardRoute: ApiMeDashboardRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,6 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 
-import type { Role } from "./types";
+import {
+	CATALOG_MANAGEMENT_ROLES,
+	POS_OPERATION_ROLES,
+	type Role,
+} from "./types";
 
 export const getAppUserFn = createServerFn({ method: "GET" }).handler(
 	async () => {
@@ -37,18 +41,24 @@ export const getOAuthSetupFn = createServerFn({ method: "GET" }).handler(
 	},
 );
 
-export async function ensureCatalogManagementRole() {
+async function ensureRoleIn(allowedRoles: Role[]) {
 	const user = await getAppUserFn();
 
 	if (!user) {
 		throw new Error("UNAUTHORIZED");
 	}
 
-	const allowedRoles: Role[] = ["owner", "admin", "manager"];
-
 	if (!allowedRoles.includes(user.role)) {
 		throw new Error("FORBIDDEN");
 	}
 
 	return user;
+}
+
+export async function ensureCatalogManagementRole() {
+	return await ensureRoleIn(CATALOG_MANAGEMENT_ROLES);
+}
+
+export async function ensurePosOperationRole() {
+	return await ensureRoleIn(POS_OPERATION_ROLES);
 }

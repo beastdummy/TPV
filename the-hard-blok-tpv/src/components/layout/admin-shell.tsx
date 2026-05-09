@@ -1,5 +1,12 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { FolderTree, LayoutGrid, Package } from "lucide-react";
+import {
+	Boxes,
+	FolderTree,
+	LayoutGrid,
+	Package,
+	ShoppingCart,
+	Warehouse,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
 type AdminShellProps = {
@@ -24,6 +31,21 @@ const navItems = [
 		to: "/admin/products",
 		label: "Productos",
 		icon: Package,
+	},
+	{
+		to: "/admin/warehouses",
+		label: "Almacenes",
+		icon: Warehouse,
+	},
+	{
+		to: "/admin/inventory",
+		label: "Inventario",
+		icon: Boxes,
+	},
+	{
+		to: "/admin/purchases",
+		label: "Compras",
+		icon: ShoppingCart,
 	},
 ];
 

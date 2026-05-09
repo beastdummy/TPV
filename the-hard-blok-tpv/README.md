@@ -37,6 +37,12 @@ This project uses [Vitest](https://vitest.dev/) for testing. You can run the tes
 npm run test
 ```
 
+## Docker (app + database)
+
+Para ejecutar TPV + Postgres con Docker Compose, revisa:
+
+- [docs/deploy-docker.md](docs/deploy-docker.md)
+
 ## Auth Setup (Google + Better Auth)
 
 Authentication is handled by [Better Auth](https://www.better-auth.com/) with Google OAuth, mounted at:
