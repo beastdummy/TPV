@@ -9,22 +9,19 @@ import {
 } from "lucide-react";
 
 import { AdminShell } from "../../components/layout/admin-shell";
-import {
-	getCategoriesFn,
-	getProductsFn,
-} from "../../features/admin/server-fns";
+import { getCategoriesForAdminFn } from "../../features/admin/categories.server-fns";
+import { getProductsForAdminFn } from "../../features/admin/products.server-fns";
 import type { Category, Product } from "../../features/admin/types";
-import { requireRoleForRoute } from "../../features/auth/route-guards";
-import { CATALOG_MANAGEMENT_ROLES } from "../../features/auth/types";
+import { requireCatalogManagementTenantForRoute } from "../../features/auth/route-guards";
 
 export const Route = createFileRoute("/admin/")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(CATALOG_MANAGEMENT_ROLES, location.href);
+		await requireCatalogManagementTenantForRoute(location.href);
 	},
 	loader: async () => {
 		const [categories, products] = await Promise.all([
-			getCategoriesFn(),
-			getProductsFn(),
+			getCategoriesForAdminFn(),
+			getProductsForAdminFn(),
 		]);
 
 		return { categories, products };
