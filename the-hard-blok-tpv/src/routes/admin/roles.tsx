@@ -27,7 +27,7 @@ export const Route = createFileRoute("/admin/roles")({
 		await requireBusinessPermissionForRoute("roles.view", location.href);
 	},
 	loader: async () => {
-		return { roles: await getRolesForAdminFn() };
+		return await getRolesForAdminFn();
 	},
 	component: AdminRolesPage,
 });
@@ -78,7 +78,7 @@ function PermissionMatrix(props: {
 }
 
 function AdminRolesPage() {
-	const { roles } = Route.useLoaderData();
+	const { roles, owner } = Route.useLoaderData();
 	const router = useRouter();
 	const [editingRole, setEditingRole] = useState<BusinessRoleRow | null>(null);
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -191,11 +191,6 @@ function AdminRolesPage() {
 					</button>
 				}
 			>
-				<div className="mb-6 rounded-2xl border bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
-					El rol <strong>owner</strong> (propietario) tiene todos los permisos
-					siempre y no aparece en esta lista.
-				</div>
-
 				<div className="overflow-hidden rounded-3xl border bg-background">
 					<div className="grid grid-cols-[1.4fr_2fr_120px_160px] gap-4 border-b px-5 py-4 text-xs uppercase tracking-[0.18em] text-muted-foreground">
 						<span>Rol</span>
@@ -204,6 +199,26 @@ function AdminRolesPage() {
 						<span>Acciones</span>
 					</div>
 					<div className="divide-y">
+						<div className="grid grid-cols-[1.4fr_2fr_120px_160px] gap-4 bg-muted/15 px-5 py-4 text-sm">
+							<div>
+								<div className="flex flex-wrap items-center gap-2">
+									<p className="font-semibold">{owner.name}</p>
+									<span className="rounded-full border bg-background px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+										Sistema
+									</span>
+								</div>
+								<p className="text-xs text-muted-foreground">{owner.slug}</p>
+							</div>
+							<div>
+								<p className="text-muted-foreground">{owner.description}</p>
+								<p className="mt-1 text-xs font-medium text-primary">
+									Acceso total automático
+								</p>
+							</div>
+							<p className="tabular-nums">{owner.member_count}</p>
+							<p className="text-xs text-muted-foreground">No editable</p>
+						</div>
+
 						{customRoles.map((role) => (
 							<div
 								key={role.id}

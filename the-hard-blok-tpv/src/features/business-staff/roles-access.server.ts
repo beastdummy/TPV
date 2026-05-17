@@ -3,6 +3,7 @@ import { requireBusinessPermission } from "./business-permissions.server";
 import { BUSINESS_STAFF_ERRORS, BusinessStaffError } from "./errors";
 import type { BusinessPermissionKey } from "./permissions";
 import {
+	countActiveOwnersForBusiness,
 	deleteBusinessRole,
 	findRoleByNameForBusiness,
 	getRoleForBusiness,
@@ -15,10 +16,33 @@ import {
 import { slugifyRoleName } from "./schemas";
 import { requireStaffBusinessContext } from "./tenant-context.server";
 
+function assertRoleIsNotOwner(role: { slug: string }) {
+	if (role.slug === BUSINESS_OWNER_ROLE) {
+		throw new BusinessStaffError(
+			BUSINESS_STAFF_ERRORS.OWNER_PROTECTED,
+			"El rol propietario no se puede modificar.",
+		);
+	}
+}
+
 export async function loadRolesForBusiness() {
 	await requireBusinessPermission("roles.view");
 	const { businessId } = await requireStaffBusinessContext();
-	return await listRolesForBusiness(businessId);
+	const [roles, owner_member_count] = await Promise.all([
+		listRolesForBusiness(businessId),
+		countActiveOwnersForBusiness(businessId),
+	]);
+
+	return {
+		roles,
+		owner: {
+			slug: BUSINESS_OWNER_ROLE,
+			name: "Propietario",
+			description: "Acceso total automático a todos los módulos.",
+			member_count: owner_member_count,
+			is_system: true,
+		},
+	};
 }
 
 export async function loadRolePermissionsForBusiness(roleId: string) {
@@ -32,6 +56,8 @@ export async function loadRolePermissionsForBusiness(roleId: string) {
 			"Rol no encontrado.",
 		);
 	}
+
+	assertRoleIsNotOwner(role);
 
 	const permission_keys = await listPermissionKeysForRole({
 		businessId,
@@ -104,6 +130,8 @@ export async function updateRoleForBusiness(data: {
 		);
 	}
 
+	assertRoleIsNotOwner(role);
+
 	const duplicate = await findRoleByNameForBusiness({
 		businessId,
 		name: data.name.trim(),
@@ -144,6 +172,8 @@ export async function saveRolePermissionsForBusiness(data: {
 			"Rol no encontrado.",
 		);
 	}
+
+	assertRoleIsNotOwner(role);
 
 	await replaceRolePermissions({
 		businessId,

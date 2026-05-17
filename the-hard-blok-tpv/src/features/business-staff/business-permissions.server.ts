@@ -1,9 +1,14 @@
 import { getCurrentTenantContext } from "../auth/tenant-guards.server";
 import type { Role } from "../auth/types";
-import { BUSINESS_OWNER_ROLE } from "../tenancy/business-roles.types";
 import { BUSINESS_STAFF_ERRORS, BusinessStaffError } from "./errors";
-import type { BusinessPermissionKey } from "./permissions";
+import {
+	BUSINESS_OWNER_ROLE,
+	type BusinessPermissionKey,
+	isBusinessOwnerRole,
+} from "./permissions";
 import { getRolePermissionKeysForBusiness } from "./queries.server";
+
+export { BUSINESS_OWNER_ROLE, isBusinessOwnerRole };
 
 const LEGACY_ADMIN_PERMISSIONS = new Set<BusinessPermissionKey>([
 	"dashboard.view",
@@ -33,8 +38,11 @@ const LEGACY_ADMIN_PERMISSIONS = new Set<BusinessPermissionKey>([
 	"roles.view",
 	"roles.manage",
 	"reports.view",
+	"reports.manage",
 	"settings.view",
 	"settings.manage",
+	"audit.view",
+	"audit.manage",
 ]);
 
 const LEGACY_MANAGER_PERMISSIONS = new Set<BusinessPermissionKey>([
@@ -51,6 +59,7 @@ const LEGACY_MANAGER_PERMISSIONS = new Set<BusinessPermissionKey>([
 	"purchases.view",
 	"employees.view",
 	"roles.view",
+	"audit.view",
 ]);
 
 const LEGACY_CASHIER_PERMISSIONS = new Set<BusinessPermissionKey>([
@@ -60,7 +69,7 @@ const LEGACY_CASHIER_PERMISSIONS = new Set<BusinessPermissionKey>([
 ]);
 
 function legacyPermissionSet(role: Role): Set<BusinessPermissionKey> | null {
-	if (role === "owner") {
+	if (isBusinessOwnerRole(role)) {
 		return null;
 	}
 	if (role === "admin") {
@@ -75,17 +84,24 @@ function legacyPermissionSet(role: Role): Set<BusinessPermissionKey> | null {
 	return null;
 }
 
+/**
+ * Propietario del negocio: acceso total sin consultar business_role_permissions.
+ */
 export async function hasBusinessPermission(
 	permissionKey: BusinessPermissionKey | string,
 ): Promise<boolean> {
 	const ctx = await getCurrentTenantContext();
 
-	if (!ctx?.business) {
+	if (!ctx) {
 		return false;
 	}
 
-	if (ctx.role === BUSINESS_OWNER_ROLE) {
+	if (isBusinessOwnerRole(ctx.role)) {
 		return true;
+	}
+
+	if (!ctx.business) {
+		return false;
 	}
 
 	const legacy = legacyPermissionSet(ctx.role);
@@ -124,6 +140,10 @@ export async function requireBusinessPermission(
 		);
 	}
 
+	if (isBusinessOwnerRole(ctx.role)) {
+		return ctx;
+	}
+
 	const allowed = await hasBusinessPermission(permissionKey);
 
 	if (!allowed) {
@@ -139,9 +159,29 @@ export async function requireBusinessPermission(
 export async function requireAnyBusinessPermission(
 	permissionKeys: Array<BusinessPermissionKey | string>,
 ) {
+	const ctx = await getCurrentTenantContext();
+
+	if (!ctx) {
+		throw new BusinessStaffError(
+			BUSINESS_STAFF_ERRORS.UNAUTHORIZED,
+			"No autenticado.",
+		);
+	}
+
+	if (!ctx.business) {
+		throw new BusinessStaffError(
+			BUSINESS_STAFF_ERRORS.TENANT_NOT_FOUND,
+			"No hay negocio activo.",
+		);
+	}
+
+	if (isBusinessOwnerRole(ctx.role)) {
+		return ctx;
+	}
+
 	for (const key of permissionKeys) {
 		if (await hasBusinessPermission(key)) {
-			return await requireBusinessPermission(key);
+			return ctx;
 		}
 	}
 

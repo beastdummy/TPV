@@ -1,6 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import {
 	Boxes,
+	ClipboardList,
 	FolderTree,
 	LayoutGrid,
 	Package,
@@ -58,6 +59,11 @@ const navItems = [
 		to: "/admin/roles",
 		label: "Roles y permisos",
 		icon: Shield,
+	},
+	{
+		to: "/admin/audit",
+		label: "Auditoría",
+		icon: ClipboardList,
 	},
 ];
 

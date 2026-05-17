@@ -25,6 +25,7 @@ import { Route as AdminProductsRouteImport } from './routes/admin/products'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminEmployeesRouteImport } from './routes/admin/employees'
 import { Route as AdminCategoriesRouteImport } from './routes/admin/categories'
+import { Route as AdminAuditRouteImport } from './routes/admin/audit'
 import { Route as ApiMeDashboardRouteImport } from './routes/api/me/dashboard'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AdminProductsCreateRouteImport } from './routes/admin/products.create'
@@ -110,6 +111,11 @@ const AdminCategoriesRoute = AdminCategoriesRouteImport.update({
   path: '/admin/categories',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminAuditRoute = AdminAuditRouteImport.update({
+  id: '/admin/audit',
+  path: '/admin/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMeDashboardRoute = ApiMeDashboardRouteImport.update({
   id: '/api/me/dashboard',
   path: '/api/me/dashboard',
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/register': typeof RegisterRoute
   '/sales': typeof SalesRoute
   '/signup': typeof SignupRoute
+  '/admin/audit': typeof AdminAuditRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/employees': typeof AdminEmployeesRoute
   '/admin/inventory': typeof AdminInventoryRoute
@@ -163,6 +170,7 @@ export interface FileRoutesByTo {
   '/register': typeof RegisterRoute
   '/sales': typeof SalesRoute
   '/signup': typeof SignupRoute
+  '/admin/audit': typeof AdminAuditRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/employees': typeof AdminEmployeesRoute
   '/admin/inventory': typeof AdminInventoryRoute
@@ -186,6 +194,7 @@ export interface FileRoutesById {
   '/register': typeof RegisterRoute
   '/sales': typeof SalesRoute
   '/signup': typeof SignupRoute
+  '/admin/audit': typeof AdminAuditRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/employees': typeof AdminEmployeesRoute
   '/admin/inventory': typeof AdminInventoryRoute
@@ -210,6 +219,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/sales'
     | '/signup'
+    | '/admin/audit'
     | '/admin/categories'
     | '/admin/employees'
     | '/admin/inventory'
@@ -232,6 +242,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/sales'
     | '/signup'
+    | '/admin/audit'
     | '/admin/categories'
     | '/admin/employees'
     | '/admin/inventory'
@@ -254,6 +265,7 @@ export interface FileRouteTypes {
     | '/register'
     | '/sales'
     | '/signup'
+    | '/admin/audit'
     | '/admin/categories'
     | '/admin/employees'
     | '/admin/inventory'
@@ -277,6 +289,7 @@ export interface RootRouteChildren {
   RegisterRoute: typeof RegisterRoute
   SalesRoute: typeof SalesRoute
   SignupRoute: typeof SignupRoute
+  AdminAuditRoute: typeof AdminAuditRoute
   AdminCategoriesRoute: typeof AdminCategoriesRoute
   AdminEmployeesRoute: typeof AdminEmployeesRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
@@ -403,6 +416,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminCategoriesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/audit': {
+      id: '/admin/audit'
+      path: '/admin/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AdminAuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/me/dashboard': {
       id: '/api/me/dashboard'
       path: '/api/me/dashboard'
@@ -457,6 +477,7 @@ const rootRouteChildren: RootRouteChildren = {
   RegisterRoute: RegisterRoute,
   SalesRoute: SalesRoute,
   SignupRoute: SignupRoute,
+  AdminAuditRoute: AdminAuditRoute,
   AdminCategoriesRoute: AdminCategoriesRoute,
   AdminEmployeesRoute: AdminEmployeesRoute,
   AdminInventoryRoute: AdminInventoryRoute,

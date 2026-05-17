@@ -21,6 +21,7 @@ export const BUSINESS_PERMISSION_MODULES = [
 	"roles",
 	"reports",
 	"settings",
+	"audit",
 ] as const;
 
 export type BusinessPermissionModule =
@@ -69,4 +70,13 @@ export const PERMISSION_MODULE_LABELS: Record<
 	roles: "Roles y permisos",
 	reports: "Informes",
 	settings: "Ajustes",
+	audit: "Auditoría",
 };
+
+import { BUSINESS_OWNER_ROLE } from "../tenancy/business-roles.types";
+
+export { BUSINESS_OWNER_ROLE };
+
+export function isBusinessOwnerRole(role: string): boolean {
+	return role === BUSINESS_OWNER_ROLE;
+}

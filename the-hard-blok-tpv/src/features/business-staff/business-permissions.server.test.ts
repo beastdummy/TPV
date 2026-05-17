@@ -15,9 +15,11 @@ vi.mock("./queries.server", () => ({
 
 import {
 	hasBusinessPermission,
+	requireAnyBusinessPermission,
 	requireBusinessPermission,
 } from "./business-permissions.server";
 import { BUSINESS_STAFF_ERRORS } from "./errors";
+import { ALL_BUSINESS_PERMISSION_KEYS } from "./permissions";
 
 const businessContext = {
 	userId: "user-1",
@@ -28,20 +30,56 @@ const businessContext = {
 	role: "cashier" as const,
 };
 
+const ownerContext = {
+	user: { id: "u1", email: "o@cafe.com", name: "Owner", role: "owner" },
+	business: { ...businessContext, role: "owner" },
+	role: "owner" as const,
+	roleSource: "membership" as const,
+};
+
 describe("business-permissions.server", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
 
-	it("owner always has all permissions", async () => {
-		mocks.getCurrentTenantContext.mockResolvedValue({
-			user: { id: "u1", email: "o@cafe.com", name: "Owner", role: "owner" },
-			business: businessContext,
-			role: "owner",
-			roleSource: "membership",
-		});
+	it("owner has every catalog permission including audit", async () => {
+		mocks.getCurrentTenantContext.mockResolvedValue(ownerContext);
 
-		await expect(hasBusinessPermission("employees.delete")).resolves.toBe(true);
+		for (const key of ALL_BUSINESS_PERMISSION_KEYS) {
+			await expect(hasBusinessPermission(key)).resolves.toBe(true);
+		}
+	});
+
+	it("owner does not query business_role_permissions", async () => {
+		mocks.getCurrentTenantContext.mockResolvedValue(ownerContext);
+
+		await hasBusinessPermission("employees.view");
+		await hasBusinessPermission("audit.manage");
+
+		expect(mocks.getRolePermissionKeysForBusiness).not.toHaveBeenCalled();
+	});
+
+	it("owner can access employees, roles and audit via requireBusinessPermission", async () => {
+		mocks.getCurrentTenantContext.mockResolvedValue(ownerContext);
+
+		await expect(
+			requireBusinessPermission("employees.view"),
+		).resolves.toMatchObject({ role: "owner" });
+		await expect(
+			requireBusinessPermission("roles.manage"),
+		).resolves.toMatchObject({ role: "owner" });
+		await expect(
+			requireBusinessPermission("audit.view"),
+		).resolves.toMatchObject({ role: "owner" });
+	});
+
+	it("requireAnyBusinessPermission allows owner without checking keys", async () => {
+		mocks.getCurrentTenantContext.mockResolvedValue(ownerContext);
+
+		await expect(
+			requireAnyBusinessPermission(["audit.manage", "settings.delete"]),
+		).resolves.toMatchObject({ role: "owner" });
+		expect(mocks.getRolePermissionKeysForBusiness).not.toHaveBeenCalled();
 	});
 
 	it("custom role uses business_role_permissions", async () => {
@@ -84,7 +122,7 @@ describe("business-permissions.server", () => {
 		await expect(hasBusinessPermission("employees.view")).resolves.toBe(false);
 	});
 
-	it("requireBusinessPermission throws FORBIDDEN", async () => {
+	it("requireBusinessPermission throws FORBIDDEN for cashier", async () => {
 		mocks.getCurrentTenantContext.mockResolvedValue({
 			user: { id: "u4", email: "c@cafe.com", name: "Cash", role: "cashier" },
 			business: businessContext,
