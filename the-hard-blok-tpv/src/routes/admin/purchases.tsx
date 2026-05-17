@@ -3,17 +3,13 @@ import { PlusCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { AdminShell } from "../../components/layout/admin-shell";
-import { getProductsFn } from "../../features/admin/server-fns";
+import { getPurchasesPageForAdminFn } from "../../features/admin/purchases.server-fns";
 import type { Product } from "../../features/admin/types";
-import { requireRoleForRoute } from "../../features/auth/route-guards";
-import { CATALOG_MANAGEMENT_ROLES } from "../../features/auth/types";
-import { getWarehousesFn } from "../../features/inventory/server-fns";
+import { requireCatalogManagementTenantForRoute } from "../../features/auth/route-guards";
 import type { Warehouse } from "../../features/inventory/types";
 import {
 	createPurchaseReceiptFn,
 	createSupplierFn,
-	getRecentPurchaseReceiptsFn,
-	getSuppliersFn,
 } from "../../features/purchases/server-fns";
 import type {
 	PurchaseReceiptListItem,
@@ -22,17 +18,10 @@ import type {
 
 export const Route = createFileRoute("/admin/purchases")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(CATALOG_MANAGEMENT_ROLES, location.href);
+		await requireCatalogManagementTenantForRoute(location.href);
 	},
 	loader: async () => {
-		const [suppliers, warehouses, products, receipts] = await Promise.all([
-			getSuppliersFn(),
-			getWarehousesFn(),
-			getProductsFn(),
-			getRecentPurchaseReceiptsFn(),
-		]);
-
-		return { suppliers, warehouses, products, receipts };
+		return await getPurchasesPageForAdminFn();
 	},
 	component: AdminPurchasesPage,
 });
