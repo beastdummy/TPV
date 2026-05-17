@@ -39,6 +39,14 @@ try {
 		console.log(`Applied DDL: db/migrations/${file}`);
 	}
 
+	const expectedTables = [
+		"cash_sessions",
+		"sales",
+		"sale_items",
+		"sale_idempotency_keys",
+		"sale_payments",
+	];
+
 	const tables = await client.query(
 		`
     SELECT table_name
@@ -47,13 +55,7 @@ try {
       AND table_name = ANY($1::text[])
     ORDER BY table_name
     `,
-		[
-			"cash_sessions",
-			"sales",
-			"sale_items",
-			"sale_idempotency_keys",
-			"sale_payments",
-		],
+		[expectedTables],
 	);
 
 	console.log(
