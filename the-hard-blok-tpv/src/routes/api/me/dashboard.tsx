@@ -53,10 +53,18 @@ export const Route = createFileRoute("/api/me/dashboard")({
 					? rawRange
 					: DEFAULT_DASHBOARD_RANGE;
 
+				const { getPrimaryMembership } = await import(
+					"../../../features/tenancy/queries.server"
+				);
+				const primaryMembership = await getPrimaryMembership(appUser.id);
+
 				const { getDashboardData } = await import(
 					"../../../features/dashboard/queries.server"
 				);
-				const data = await getDashboardData({ range });
+				const data = await getDashboardData({
+					range,
+					businessId: primaryMembership?.businessId ?? null,
+				});
 
 				return Response.json(data);
 			},

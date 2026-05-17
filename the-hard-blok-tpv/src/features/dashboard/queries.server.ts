@@ -19,9 +19,6 @@ type GetDashboardArgs = {
  * - today: [hoy 00:00, mañana 00:00)
  * - 7d:    [hace 6 días 00:00, mañana 00:00)  → 7 días naturales incluyendo hoy
  * - 30d:   [hace 29 días 00:00, mañana 00:00) → 30 días naturales incluyendo hoy
- *
- * Se calculan en hora local del servidor para coincidir con la operativa diaria
- * del TPV (apertura/cierre de caja en la zona horaria local del negocio).
  */
 function getPeriodBounds(range: DashboardRange): {
 	start: Date;
@@ -63,7 +60,7 @@ function formatLocalDateKey(date: Date): string {
 	return `${year}-${month}-${day}`;
 }
 
-function buildEmptyDayBuckets(
+export function buildEmptyDayBuckets(
 	start: Date,
 	end: Date,
 ): Map<string, DashboardSalesByDay> {
@@ -79,14 +76,10 @@ function buildEmptyDayBuckets(
 	return buckets;
 }
 
-/**
- * Comprueba si la tabla `sales` existe en el esquema.
- * El TPV se entrega con catálogo + stock + compras antes de tener ventas reales,
- * por lo que el dashboard debe funcionar igualmente devolviendo ceros.
- */
-async function salesTableExists(): Promise<boolean> {
+async function tableExists(tableName: string): Promise<boolean> {
 	const result = await db.query<{ exists: boolean }>(
-		`SELECT (to_regclass('public.sales') IS NOT NULL) AS exists`,
+		`SELECT (to_regclass($1::text) IS NOT NULL) AS exists`,
+		[`public.${tableName}`],
 	);
 	return result.rows[0]?.exists ?? false;
 }
@@ -102,30 +95,65 @@ function emptyTotals(): DashboardTotals {
 	};
 }
 
-export async function getDashboardData(
-	args: GetDashboardArgs,
-): Promise<DashboardData> {
-	const { start, end } = getPeriodBounds(args.range);
-	const businessId = args.businessId ?? null;
-
-	const skeleton: DashboardData = {
+export function buildEmptyDashboardData(args: {
+	range: DashboardRange;
+	start: Date;
+	end: Date;
+}): DashboardData {
+	return {
 		range: args.range,
-		periodStart: start.toISOString(),
-		periodEnd: end.toISOString(),
+		periodStart: args.start.toISOString(),
+		periodEnd: args.end.toISOString(),
 		totals: emptyTotals(),
-		salesByDay: Array.from(buildEmptyDayBuckets(start, end).values()),
+		salesByDay: Array.from(buildEmptyDayBuckets(args.start, args.end).values()),
 		salesByEmployee: [],
 		topProducts: [],
 	};
+}
 
-	if (!(await salesTableExists())) {
-		return skeleton;
-	}
+function mapTotalsRow(
+	row:
+		| {
+				total_sales_cents: string | null;
+				orders: string | null;
+				cash_cents: string | null;
+				card_cents: string | null;
+				cancelled_orders: string | null;
+		  }
+		| undefined,
+): DashboardTotals {
+	const totalSalesCents = Number(row?.total_sales_cents ?? 0);
+	const orders = Number(row?.orders ?? 0);
 
-	const businessFilter = businessId
+	return {
+		totalSalesCents,
+		orders,
+		averageTicketCents: orders > 0 ? Math.round(totalSalesCents / orders) : 0,
+		cashCents: Number(row?.cash_cents ?? 0),
+		cardCents: Number(row?.card_cents ?? 0),
+		cancelledOrders: Number(row?.cancelled_orders ?? 0),
+	};
+}
+
+async function loadDashboardMetrics(args: {
+	start: Date;
+	end: Date;
+	businessId: string | null;
+	includeTopProducts: boolean;
+}): Promise<
+	Pick<
+		DashboardData,
+		"totals" | "salesByDay" | "salesByEmployee" | "topProducts"
+	>
+> {
+	const businessFilter = args.businessId
 		? `AND s.business_id = $3::uuid`
 		: `AND ($3::uuid IS NULL)`;
-	const params = [start.toISOString(), end.toISOString(), businessId];
+	const params = [
+		args.start.toISOString(),
+		args.end.toISOString(),
+		args.businessId,
+	];
 
 	const totalsPromise = db.query<{
 		total_sales_cents: string | null;
@@ -189,32 +217,33 @@ export async function getDashboardData(
       COALESCE(SUM(ROUND(s.total * 100)), 0)::bigint AS total_sales_cents,
       COUNT(*)::bigint AS orders
     FROM sales s
-    LEFT JOIN users u ON u.id = s.user_id
+    LEFT JOIN users u ON u.id = s.created_by_user_id
     WHERE s.created_at >= $1::timestamptz
       AND s.created_at < $2::timestamptz
       AND s.status = 'completed'
       ${businessFilter}
-    GROUP BY u.name
+    GROUP BY u.id, COALESCE(u.name, '—')
     ORDER BY total_sales_cents DESC
     LIMIT 20
   `,
 		params,
 	);
 
-	const topProductsPromise = db.query<{
-		product_id: string | null;
-		product_name: string;
-		units: string | null;
-		revenue_cents: string | null;
-	}>(
-		`
+	const topProductsPromise = args.includeTopProducts
+		? db.query<{
+				product_id: string | null;
+				product_name: string;
+				units: string | null;
+				revenue_cents: string | null;
+			}>(
+				`
     SELECT
       si.product_id::text AS product_id,
       si.product_name AS product_name,
       COALESCE(SUM(si.quantity), 0)::float8 AS units,
       COALESCE(SUM(ROUND(si.line_total * 100)), 0)::bigint AS revenue_cents
     FROM sale_items si
-    JOIN sales s ON s.id = si.sale_id
+    INNER JOIN sales s ON s.id = si.sale_id
     WHERE s.created_at >= $1::timestamptz
       AND s.created_at < $2::timestamptz
       AND s.status = 'completed'
@@ -223,8 +252,9 @@ export async function getDashboardData(
     ORDER BY revenue_cents DESC
     LIMIT 10
   `,
-		params,
-	);
+				params,
+			)
+		: Promise.resolve({ rows: [] });
 
 	const [
 		totalsResult,
@@ -238,19 +268,7 @@ export async function getDashboardData(
 		topProductsPromise,
 	]);
 
-	const totalsRow = totalsResult.rows[0];
-	const totalSalesCents = Number(totalsRow?.total_sales_cents ?? 0);
-	const orders = Number(totalsRow?.orders ?? 0);
-	const totals: DashboardTotals = {
-		totalSalesCents,
-		orders,
-		averageTicketCents: orders > 0 ? Math.round(totalSalesCents / orders) : 0,
-		cashCents: Number(totalsRow?.cash_cents ?? 0),
-		cardCents: Number(totalsRow?.card_cents ?? 0),
-		cancelledOrders: Number(totalsRow?.cancelled_orders ?? 0),
-	};
-
-	const dayBuckets = buildEmptyDayBuckets(start, end);
+	const dayBuckets = buildEmptyDayBuckets(args.start, args.end);
 	for (const row of salesByDayResult.rows) {
 		const bucket = dayBuckets.get(row.date_key);
 		if (bucket) {
@@ -258,7 +276,6 @@ export async function getDashboardData(
 			bucket.orders = Number(row.orders ?? 0);
 		}
 	}
-	const salesByDay = Array.from(dayBuckets.values());
 
 	const salesByEmployee: DashboardSalesByEmployee[] =
 		salesByEmployeeResult.rows.map((row) => {
@@ -283,12 +300,45 @@ export async function getDashboardData(
 	);
 
 	return {
-		range: args.range,
-		periodStart: start.toISOString(),
-		periodEnd: end.toISOString(),
-		totals,
-		salesByDay,
+		totals: mapTotalsRow(totalsResult.rows[0]),
+		salesByDay: Array.from(dayBuckets.values()),
 		salesByEmployee,
 		topProducts,
 	};
+}
+
+export async function getDashboardData(
+	args: GetDashboardArgs,
+): Promise<DashboardData> {
+	const { start, end } = getPeriodBounds(args.range);
+	const businessId = args.businessId ?? null;
+	const skeleton = buildEmptyDashboardData({
+		range: args.range,
+		start,
+		end,
+	});
+
+	if (!(await tableExists("sales"))) {
+		return skeleton;
+	}
+
+	const includeTopProducts = await tableExists("sale_items");
+
+	try {
+		const metrics = await loadDashboardMetrics({
+			start,
+			end,
+			businessId,
+			includeTopProducts,
+		});
+
+		return {
+			range: args.range,
+			periodStart: start.toISOString(),
+			periodEnd: end.toISOString(),
+			...metrics,
+		};
+	} catch {
+		return skeleton;
+	}
 }
