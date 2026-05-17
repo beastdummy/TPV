@@ -4,9 +4,11 @@ import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 
 import { AdminShell } from "../../components/layout/admin-shell";
-import { getInventoryPageForAdminFn } from "../../features/admin/inventory.server-fns";
+import {
+	createInventoryMovementDetailedForAdminFn,
+	getInventoryPageForAdminFn,
+} from "../../features/admin/inventory.server-fns";
 import { requireCatalogManagementTenantForRoute } from "../../features/auth/route-guards";
-import { createInventoryMovementDetailedFn } from "../../features/inventory/server-fns";
 import {
 	STOCK_MOVEMENT_TYPES,
 	type StockMovementType,
@@ -104,7 +106,7 @@ function AdminInventoryPage() {
 
 		try {
 			setIsSubmitting(true);
-			await createInventoryMovementDetailedFn({
+			await createInventoryMovementDetailedForAdminFn({
 				data: {
 					product_id: productId,
 					warehouse_id: warehouseId,
