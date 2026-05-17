@@ -124,7 +124,7 @@ WHERE TRIM(COALESCE(p.warehouse, '')) <> ''
 ON CONFLICT (id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS product_stock (
-  product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE CASCADE,
   quantity NUMERIC(14, 3) NOT NULL DEFAULT 0,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -139,7 +139,7 @@ ON product_stock (product_id);
 
 CREATE TABLE IF NOT EXISTS stock_movements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
   warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
   movement_type TEXT NOT NULL,
   quantity NUMERIC(14, 3) NOT NULL,
@@ -166,7 +166,7 @@ ON stock_movements (product_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS inventory_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
   warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
   lot_code TEXT NOT NULL DEFAULT '',
   serial_number TEXT NOT NULL DEFAULT '',
@@ -186,7 +186,7 @@ ON inventory_items (expiry_date);
 CREATE TABLE IF NOT EXISTS inventory_item_movements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   inventory_item_id UUID NOT NULL REFERENCES inventory_items(id) ON DELETE RESTRICT,
-  product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
   warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
   movement_type TEXT NOT NULL,
   quantity NUMERIC(14, 3) NOT NULL,
@@ -241,7 +241,7 @@ ON purchase_receipts (warehouse_id, created_at DESC);
 CREATE TABLE IF NOT EXISTS purchase_receipt_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   receipt_id UUID NOT NULL REFERENCES purchase_receipts(id) ON DELETE CASCADE,
-  product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
   quantity NUMERIC(14, 3) NOT NULL,
   unit_cost NUMERIC(12, 3) NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
