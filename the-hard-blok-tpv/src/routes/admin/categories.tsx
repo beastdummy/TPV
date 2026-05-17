@@ -4,21 +4,20 @@ import { useMemo, useState } from "react";
 
 import { AdminShell } from "../../components/layout/admin-shell";
 import {
-	createCategoryFn,
-	deleteCategoryFn,
-	getCategoriesFn,
-	updateCategoryFn,
-} from "../../features/admin/server-fns";
+	createCategoryForAdminFn,
+	deleteCategoryForAdminFn,
+	getCategoriesForAdminFn,
+	updateCategoryForAdminFn,
+} from "../../features/admin/categories.server-fns";
 import type { Category } from "../../features/admin/types";
-import { requireRoleForRoute } from "../../features/auth/route-guards";
-import { CATALOG_MANAGEMENT_ROLES } from "../../features/auth/types";
+import { requireCatalogManagementTenantForRoute } from "../../features/auth/route-guards";
 
 export const Route = createFileRoute("/admin/categories")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(CATALOG_MANAGEMENT_ROLES, location.href);
+		await requireCatalogManagementTenantForRoute(location.href);
 	},
 	loader: async () => {
-		const categories = await getCategoriesFn();
+		const categories = await getCategoriesForAdminFn();
 		return { categories };
 	},
 	component: AdminCategoriesPage,
@@ -120,12 +119,12 @@ function AdminCategoriesPage() {
 
 		try {
 			if (editingCategoryId) {
-				await updateCategoryFn({
+				await updateCategoryForAdminFn({
 					data: form,
 				});
 				window.alert("Categoría actualizada correctamente.");
 			} else {
-				await createCategoryFn({
+				await createCategoryForAdminFn({
 					data: form,
 				});
 				window.alert("Categoría creada correctamente.");
@@ -152,7 +151,7 @@ function AdminCategoriesPage() {
 		if (!confirmed) return;
 
 		try {
-			await deleteCategoryFn({
+			await deleteCategoryForAdminFn({
 				data: { id: categoryId },
 			});
 
