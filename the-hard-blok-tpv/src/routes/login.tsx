@@ -44,8 +44,8 @@ function LoginPage() {
 		setIsSubmitting(true);
 
 		try {
-			await signInDevOwnerFn();
-			window.location.assign(resolvePostLoginPath());
+			const result = await signInDevOwnerFn();
+			window.location.assign(result.redirectTo ?? resolvePostLoginPath());
 		} catch (error) {
 			setErrorMessage(
 				error instanceof Error
@@ -133,7 +133,7 @@ function LoginPage() {
 							disabled={isSubmitting}
 							className="inline-flex w-full items-center justify-center rounded-2xl border border-dashed border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-950 transition hover:bg-amber-100 disabled:opacity-60"
 						>
-							{isSubmitting ? "Entrando..." : "Entrar como Owner Dev"}
+							{isSubmitting ? "Entrando..." : "Entrar como Platform Dev"}
 						</button>
 					) : null}
 

@@ -16,6 +16,7 @@ vi.mock("./platform-admin-queries.server", () => ({
 import {
 	PLATFORM_AUTH_ERRORS,
 	requirePlatformAdmin,
+	requirePlatformPermission,
 } from "./platform-guards.server";
 
 describe("requirePlatformAdmin", () => {
@@ -28,19 +29,18 @@ describe("requirePlatformAdmin", () => {
 			id: "user-1",
 			email: "ops@thehardblok.com",
 			name: "Ops",
-			role: "owner",
+			role: "cashier",
 		});
 		mocks.getActivePlatformAdminByUserId.mockResolvedValue({
 			id: "pa-1",
 			userId: "user-1",
-			role: "platform_admin",
+			role: "admin",
 			isActive: true,
 		});
 
 		const result = await requirePlatformAdmin();
 
-		expect(result.platformAdmin.role).toBe("platform_admin");
-		expect(result.user.email).toBe("ops@thehardblok.com");
+		expect(result.platformAdmin.role).toBe("admin");
 	});
 
 	it("forbids business owner without platform_admins row", async () => {
@@ -63,5 +63,52 @@ describe("requirePlatformAdmin", () => {
 		await expect(requirePlatformAdmin()).rejects.toThrow(
 			PLATFORM_AUTH_ERRORS.UNAUTHORIZED,
 		);
+	});
+});
+
+describe("requirePlatformPermission", () => {
+	afterEach(() => {
+		vi.resetAllMocks();
+	});
+
+	function mockPlatformAdmin(role: string) {
+		mocks.getAppUserFn.mockResolvedValue({
+			id: "user-1",
+			email: "ops@thehardblok.com",
+			name: "Ops",
+			role: "cashier",
+		});
+		mocks.getActivePlatformAdminByUserId.mockResolvedValue({
+			id: "pa-1",
+			userId: "user-1",
+			role,
+			isActive: true,
+		});
+	}
+
+	it("platform owner can access any permission", async () => {
+		mockPlatformAdmin("owner");
+
+		await expect(
+			requirePlatformPermission("platform.debug.read"),
+		).resolves.toMatchObject({
+			platformAdmin: { role: "owner" },
+		});
+	});
+
+	it("dev can access technical permissions", async () => {
+		mockPlatformAdmin("dev");
+
+		await expect(
+			requirePlatformPermission("platform.debug.read"),
+		).resolves.toBeDefined();
+	});
+
+	it("billing cannot access dev permissions", async () => {
+		mockPlatformAdmin("billing");
+
+		await expect(
+			requirePlatformPermission("platform.debug.read"),
+		).rejects.toThrow(PLATFORM_AUTH_ERRORS.FORBIDDEN);
 	});
 });

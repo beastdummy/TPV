@@ -29,9 +29,14 @@ try {
 		);
 	}
 
-	const ddlPath = join(root, "db/migrations/005_platform_admins.sql");
-	await client.query(readFileSync(ddlPath, "utf8"));
-	console.log("Applied DDL: db/migrations/005_platform_admins.sql");
+	for (const file of [
+		"005_platform_admins.sql",
+		"007_platform_roles.sql",
+	]) {
+		const ddlPath = join(root, "db/migrations", file);
+		await client.query(readFileSync(ddlPath, "utf8"));
+		console.log(`Applied DDL: db/migrations/${file}`);
+	}
 } finally {
 	client.release();
 	await pool.end();

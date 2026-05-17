@@ -1,5 +1,9 @@
 import { getActivePlatformAdminByUserId } from "./platform-admin-queries.server";
 import {
+	type PlatformPermission,
+	platformRoleHasPermission,
+} from "./platform-permissions";
+import {
 	PLATFORM_DASHBOARD_ROLES,
 	type PlatformAdmin,
 	type PlatformRole,
@@ -37,4 +41,19 @@ export async function requirePlatformAdmin(
 		},
 		platformAdmin,
 	};
+}
+
+export async function requirePlatformPermission(
+	permission: PlatformPermission,
+): Promise<{
+	user: { id: string; email: string; name: string };
+	platformAdmin: PlatformAdmin;
+}> {
+	const context = await requirePlatformAdmin();
+
+	if (!platformRoleHasPermission(context.platformAdmin.role, permission)) {
+		throw new Error(PLATFORM_AUTH_ERRORS.FORBIDDEN);
+	}
+
+	return context;
 }

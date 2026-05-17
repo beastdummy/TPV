@@ -45,3 +45,33 @@ export async function getActivePlatformAdminByUserId(
 	const row = result.rows[0];
 	return row ? mapPlatformAdmin(row) : null;
 }
+
+export async function upsertActivePlatformAdmin(params: {
+	userId: string;
+	role: PlatformRole;
+}): Promise<PlatformAdmin> {
+	if (!(await platformAdminsTableExists())) {
+		throw new Error("PLATFORM_ADMINS_TABLE_MISSING");
+	}
+
+	const result = await db.query<PlatformAdminRow>(
+		`
+    INSERT INTO platform_admins (user_id, role, is_active)
+    VALUES ($1, $2, TRUE)
+    ON CONFLICT (user_id) DO UPDATE
+    SET
+      role = EXCLUDED.role,
+      is_active = TRUE,
+      updated_at = NOW()
+    RETURNING id, user_id, role, is_active
+    `,
+		[params.userId, params.role],
+	);
+
+	const row = result.rows[0];
+	if (!row) {
+		throw new Error("PLATFORM_ADMIN_UPSERT_FAILED");
+	}
+
+	return mapPlatformAdmin(row);
+}

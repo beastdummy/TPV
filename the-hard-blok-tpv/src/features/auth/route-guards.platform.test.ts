@@ -41,7 +41,7 @@ describe("requirePlatformAdminForRoute", () => {
 			platformAdmin: {
 				id: "pa-1",
 				userId: "user-1",
-				role: "platform_admin",
+				role: "admin",
 				isActive: true,
 			},
 		});
@@ -49,7 +49,7 @@ describe("requirePlatformAdminForRoute", () => {
 		await expect(
 			requirePlatformAdminForRoute("/platform"),
 		).resolves.toMatchObject({
-			platformAdmin: { role: "platform_admin" },
+			platformAdmin: { role: "admin" },
 		});
 	});
 

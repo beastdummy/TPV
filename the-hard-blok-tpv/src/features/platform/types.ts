@@ -1,16 +1,18 @@
 export const PLATFORM_ROLE_VALUES = [
-	"platform_owner",
-	"platform_admin",
-	"platform_support",
+	"owner",
+	"dev",
+	"admin",
+	"support",
+	"moderator",
+	"billing",
+	"viewer",
 ] as const;
 
 export type PlatformRole = (typeof PLATFORM_ROLE_VALUES)[number];
 
-/** Roles con acceso al dashboard global /platform. */
+/** Roles con acceso al dashboard global /platform (lectura o más). */
 export const PLATFORM_DASHBOARD_ROLES: PlatformRole[] = [
-	"platform_owner",
-	"platform_admin",
-	"platform_support",
+	...PLATFORM_ROLE_VALUES,
 ];
 
 export const PLATFORM_PLAN_PLACEHOLDER = "starter" as const;

@@ -2,42 +2,34 @@ import { APIError } from "better-auth/api";
 
 import { getAuth } from "../../lib/auth.server";
 import { db } from "../../lib/db.server";
-import { getDefaultBusinessConfig } from "../tenancy/config.server";
-import { ensureDefaultBusinessMembership } from "../tenancy/membership.server";
+import { upsertActivePlatformAdmin } from "../platform/platform-admin-queries.server";
+import type { PlatformRole } from "../platform/types";
 import { syncAppUserFromBetterAuthSession } from "./app-user.server";
-import type { AuthUser, Role } from "./types";
+import type { AuthUser, Role, SessionUser } from "./types";
 
-export const PREFERRED_DEV_OWNER_EMAIL = "admin@thehardblok.local";
-export const DEV_OWNER_EMAIL = "dev-owner@thehardblok.local";
-export const DEV_OWNER_NAME = "Dev Owner";
-export const DEV_OWNER_ROLE = "owner" as const;
+export const DEV_PLATFORM_OWNER_EMAIL = "platform-owner@thehardblok.local";
+export const DEV_PLATFORM_OWNER_NAME = "Platform Owner Dev";
+export const DEV_PLATFORM_OWNER_ROLE = "owner" satisfies PlatformRole;
 
-/** Matches db/seed_admin.sql default credentials. */
-const SEED_ADMIN_PASSWORD = "Admin1234!";
+/** @deprecated Use DEV_PLATFORM_OWNER_EMAIL */
+export const DEV_OWNER_EMAIL = DEV_PLATFORM_OWNER_EMAIL;
+/** @deprecated Use DEV_PLATFORM_OWNER_NAME */
+export const DEV_OWNER_NAME = DEV_PLATFORM_OWNER_NAME;
 
-/** Local-only credential for the synthetic dev-owner Better Auth account. */
-const DEV_OWNER_PASSWORD = "dev-owner-local-only";
+/** Legacy users.role for platform-only operators (sin business_members). */
+export const DEV_PLATFORM_LEGACY_USER_ROLE = "cashier" as const satisfies Role;
+
+/** Local-only credential for the synthetic platform dev Better Auth account. */
+const DEV_PLATFORM_OWNER_PASSWORD = "dev-owner-local-only";
 
 type AppUserRow = Pick<
 	AuthUser,
 	"id" | "email" | "name" | "role" | "is_active"
 >;
 
-type DevLoginTarget =
-	| {
-			mode: "existing_owner";
-			email: string;
-			name: string;
-			password: string;
-			appUserId: string;
-			appRole: Role;
-	  }
-	| {
-			mode: "create_dev_owner";
-			email: string;
-			name: string;
-			password: string;
-	  };
+export type DevLoginResult = SessionUser & {
+	redirectTo: "/platform";
+};
 
 export function isDevAuthEnabled(): boolean {
 	return process.env.NODE_ENV !== "production";
@@ -81,87 +73,14 @@ export async function findAppUserByEmail(
 	return result.rows[0] ?? null;
 }
 
-export async function defaultBusinessHasActiveOwner(): Promise<boolean> {
-	const { slug } = getDefaultBusinessConfig();
-	const result = await db.query<{ exists: number }>(
-		`
-    SELECT 1 AS exists
-    FROM business_members bm
-    INNER JOIN businesses b ON b.id = bm.business_id
-    WHERE b.slug = $1
-      AND bm.role = 'owner'
-      AND bm.status = 'active'
-    LIMIT 1
-    `,
-		[slug],
-	);
-
-	return Boolean(result.rows[0]);
-}
-
-async function findDefaultBusinessOwnerUser(): Promise<AppUserRow | null> {
-	const { slug } = getDefaultBusinessConfig();
-	const result = await db.query<AppUserRow>(
-		`
-    SELECT u.id, u.email, u.name, u.role, u.is_active
-    FROM users u
-    INNER JOIN business_members bm ON bm.user_id = u.id
-    INNER JOIN businesses b ON b.id = bm.business_id
-    WHERE b.slug = $1
-      AND bm.role = 'owner'
-      AND bm.status = 'active'
-      AND u.is_active = TRUE
-    ORDER BY u.email ASC
-    LIMIT 1
-    `,
-		[slug],
-	);
-
-	return result.rows[0] ?? null;
-}
-
-export async function resolveDevLoginTarget(): Promise<DevLoginTarget> {
-	const admin = await findAppUserByEmail(PREFERRED_DEV_OWNER_EMAIL);
-
-	if (admin) {
-		return {
-			mode: "existing_owner",
-			email: admin.email,
-			name: admin.name,
-			password: SEED_ADMIN_PASSWORD,
-			appUserId: admin.id,
-			appRole: admin.role,
-		};
-	}
-
-	const owner = await findDefaultBusinessOwnerUser();
-
-	if (owner) {
-		return {
-			mode: "existing_owner",
-			email: owner.email,
-			name: owner.name,
-			password: DEV_OWNER_PASSWORD,
-			appUserId: owner.id,
-			appRole: owner.role,
-		};
-	}
-
-	return {
-		mode: "create_dev_owner",
-		email: DEV_OWNER_EMAIL,
-		name: DEV_OWNER_NAME,
-		password: DEV_OWNER_PASSWORD,
-	};
-}
-
-async function signInDevOwnerWithBetterAuth(target: DevLoginTarget) {
+async function signInPlatformDevWithBetterAuth() {
 	const { getRequestHeaders } = await import("@tanstack/react-start/server");
 	const headers = getRequestHeaders();
 	const auth = getAuth();
 	const credentials = {
-		email: target.email,
-		password: target.password,
+		email: DEV_PLATFORM_OWNER_EMAIL,
+		password: DEV_PLATFORM_OWNER_PASSWORD,
+		name: DEV_PLATFORM_OWNER_NAME,
 	};
 
 	try {
@@ -180,10 +99,7 @@ async function signInDevOwnerWithBetterAuth(target: DevLoginTarget) {
 
 	try {
 		await auth.api.signUpEmail({
-			body: {
-				...credentials,
-				name: target.name,
-			},
+			body: credentials,
 			headers,
 		});
 	} catch (error) {
@@ -204,95 +120,55 @@ async function signInDevOwnerWithBetterAuth(target: DevLoginTarget) {
 	return result;
 }
 
-export async function syncDevLoginAppUser(params: {
+/**
+ * Platform operator sync: platform_admins only — no businesses nor business_members.
+ */
+export async function syncDevPlatformOwnerAppUser(params: {
 	userId: string;
 	email: string;
 	name: string;
-	target: DevLoginTarget;
-}): Promise<Pick<AuthUser, "id" | "email" | "name" | "role">> {
-	if (params.target.mode === "existing_owner") {
-		const synced = await syncAppUserFromBetterAuthSession({
-			userId: params.userId,
-			email: params.email,
-			name: params.name,
-		});
-
-		return {
-			id: synced.id,
-			email: synced.email,
-			name: params.name,
-			role: params.target.appRole,
-		};
-	}
-
+}): Promise<DevLoginResult> {
 	const synced = await syncAppUserFromBetterAuthSession({
 		userId: params.userId,
 		email: params.email,
 		name: params.name,
 	});
 
-	const hasOwner = await defaultBusinessHasActiveOwner();
+	await db.query(
+		`
+    UPDATE users
+    SET role = $2, name = $3, updated_at = NOW()
+    WHERE id = $1
+    `,
+		[synced.id, DEV_PLATFORM_LEGACY_USER_ROLE, params.name],
+	);
 
-	if (!hasOwner) {
-		await db.query(
-			`
-      UPDATE users
-      SET role = $2, name = $3, updated_at = NOW()
-      WHERE id = $1
-      `,
-			[synced.id, DEV_OWNER_ROLE, params.name],
-		);
+	await upsertActivePlatformAdmin({
+		userId: synced.id,
+		role: DEV_PLATFORM_OWNER_ROLE,
+	});
 
-		await ensureDefaultBusinessMembership({
-			userId: synced.id,
-			role: DEV_OWNER_ROLE,
-			isActive: true,
-		});
-
-		return {
-			id: synced.id,
-			email: synced.email,
-			name: params.name,
-			role: DEV_OWNER_ROLE,
-		};
-	}
-
-	return synced;
+	return {
+		id: synced.id,
+		email: synced.email,
+		name: params.name,
+		role: DEV_PLATFORM_LEGACY_USER_ROLE,
+		redirectTo: "/platform",
+	};
 }
 
 /**
- * Signs in via Better Auth email/password (dev only) reusing an existing owner
- * when present, or creating the synthetic dev-owner account only if needed.
+ * Signs in via Better Auth (dev only) as platform-owner@thehardblok.local
+ * with platform role owner. Does not create tenant businesses or memberships.
  */
-export async function signInDevOwner(): Promise<
-	Pick<AuthUser, "id" | "email" | "name" | "role">
-> {
+export async function signInDevOwner(): Promise<DevLoginResult> {
 	assertDevAuthEnabled();
 
-	const target = await resolveDevLoginTarget();
-	const signInResult = await signInDevOwnerWithBetterAuth(target);
+	const signInResult = await signInPlatformDevWithBetterAuth();
 
-	return await syncDevLoginAppUser({
+	return await syncDevPlatformOwnerAppUser({
 		userId: signInResult.user.id,
 		email: signInResult.user.email,
-		name: signInResult.user.name ?? target.name,
-		target,
-	});
-}
-
-/** @deprecated Use syncDevLoginAppUser — kept for tests documenting owner bootstrap. */
-export async function syncDevOwnerAppUser(params: {
-	userId: string;
-	email: string;
-	name: string;
-}): Promise<Pick<AuthUser, "id" | "email" | "name" | "role">> {
-	return await syncDevLoginAppUser({
-		...params,
-		target: {
-			mode: "create_dev_owner",
-			email: DEV_OWNER_EMAIL,
-			name: DEV_OWNER_NAME,
-			password: DEV_OWNER_PASSWORD,
-		},
+		name: signInResult.user.name ?? DEV_PLATFORM_OWNER_NAME,
 	});
 }

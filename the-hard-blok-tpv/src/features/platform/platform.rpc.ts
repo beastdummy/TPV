@@ -11,8 +11,10 @@ export const ensurePlatformAdminFn = createServerFn({ method: "GET" }).handler(
 
 export const getPlatformDashboardFn = createServerFn({ method: "GET" }).handler(
 	async (): Promise<PlatformDashboardData> => {
-		const { requirePlatformAdmin } = await import("./platform-guards.server");
-		await requirePlatformAdmin();
+		const { requirePlatformPermission } = await import(
+			"./platform-guards.server"
+		);
+		await requirePlatformPermission("platform.dashboard.view");
 
 		const { getPlatformDashboardData } = await import(
 			"./platform-dashboard-queries.server"
