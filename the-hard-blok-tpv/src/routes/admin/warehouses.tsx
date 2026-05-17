@@ -3,22 +3,21 @@ import { ArrowRight, PlusCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { AdminShell } from "../../components/layout/admin-shell";
-import { requireRoleForRoute } from "../../features/auth/route-guards";
-import { CATALOG_MANAGEMENT_ROLES } from "../../features/auth/types";
 import {
-	createWarehouseFn,
-	getInventoryItemsFn,
-	getWarehousesFn,
-} from "../../features/inventory/server-fns";
+	createWarehouseForAdminFn,
+	getWarehousesForAdminFn,
+} from "../../features/admin/warehouses.server-fns";
+import { requireCatalogManagementTenantForRoute } from "../../features/auth/route-guards";
+import { getInventoryItemsFn } from "../../features/inventory/server-fns";
 import type { Warehouse } from "../../features/inventory/types";
 
 export const Route = createFileRoute("/admin/warehouses")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(CATALOG_MANAGEMENT_ROLES, location.href);
+		await requireCatalogManagementTenantForRoute(location.href);
 	},
 	loader: async () => {
 		const [warehouses, inventoryItems] = await Promise.all([
-			getWarehousesFn(),
+			getWarehousesForAdminFn(),
 			getInventoryItemsFn(),
 		]);
 
@@ -84,7 +83,7 @@ function AdminWarehousesPage() {
 
 		try {
 			setIsCreatingWarehouse(true);
-			await createWarehouseFn({
+			await createWarehouseForAdminFn({
 				data: {
 					id: normalizedId,
 					name: normalizedName,
