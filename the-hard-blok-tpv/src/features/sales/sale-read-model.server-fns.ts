@@ -1,50 +1,31 @@
 import { createServerFn } from "@tanstack/react-start";
-import { z } from "zod";
 
-export const saleReceiptByIdSchema = z.object({
-	sale_id: z.string().trim().uuid(),
-});
+import {
+	listRecentSalesSchema,
+	saleReceiptByIdSchema,
+	saleReceiptByReceiptNumberSchema,
+} from "./sale-read-model.schemas";
 
-export const saleReceiptByReceiptNumberSchema = z.object({
-	receipt_number: z.number().int().positive(),
-});
-
-export const listRecentSalesSchema = z.object({
-	limit: z.number().int().min(1).max(100).optional(),
-	terminal_id: z.string().trim().min(1).max(80).optional(),
-});
-
-export type SaleReceiptByIdInput = z.infer<typeof saleReceiptByIdSchema>;
-export type SaleReceiptByReceiptNumberInput = z.infer<
-	typeof saleReceiptByReceiptNumberSchema
->;
-export type ListRecentSalesInput = z.infer<typeof listRecentSalesSchema>;
-
-export async function handleGetSaleReceiptByIdForPos(
-	input: SaleReceiptByIdInput,
-) {
-	const { getSaleReceiptByIdForPos } = await import("./sale-read-model.server");
-	return await getSaleReceiptByIdForPos(input.sale_id);
-}
-
-export async function handleGetSaleReceiptByReceiptNumberForPos(
-	input: SaleReceiptByReceiptNumberInput,
-) {
-	const { getSaleReceiptByReceiptNumberForPos } = await import(
-		"./sale-read-model.server"
-	);
-	return await getSaleReceiptByReceiptNumberForPos(input.receipt_number);
-}
-
-export async function handleListRecentSalesForPos(input: ListRecentSalesInput) {
-	const { listRecentSalesForPos } = await import("./sale-read-model.server");
-	return await listRecentSalesForPos(input);
-}
+export type {
+	ListRecentSalesInput,
+	SaleReceiptByIdInput,
+	SaleReceiptByReceiptNumberInput,
+} from "./sale-read-model.schemas";
+export {
+	listRecentSalesSchema,
+	saleReceiptByIdSchema,
+	saleReceiptByReceiptNumberSchema,
+} from "./sale-read-model.schemas";
 
 /** Ticket completo por `sale_id` — tenant-aware. */
 export const getSaleReceiptByIdForPosFn = createServerFn({ method: "POST" })
 	.inputValidator((data: unknown) => saleReceiptByIdSchema.parse(data))
-	.handler(async ({ data }) => handleGetSaleReceiptByIdForPos(data));
+	.handler(async ({ data }) => {
+		const { handleGetSaleReceiptByIdForPos } = await import(
+			"./sale-read-model.handlers.server"
+		);
+		return await handleGetSaleReceiptByIdForPos(data);
+	});
 
 /** Ticket completo por `receipt_number` — tenant-aware. */
 export const getSaleReceiptByReceiptNumberForPosFn = createServerFn({
@@ -53,9 +34,19 @@ export const getSaleReceiptByReceiptNumberForPosFn = createServerFn({
 	.inputValidator((data: unknown) =>
 		saleReceiptByReceiptNumberSchema.parse(data),
 	)
-	.handler(async ({ data }) => handleGetSaleReceiptByReceiptNumberForPos(data));
+	.handler(async ({ data }) => {
+		const { handleGetSaleReceiptByReceiptNumberForPos } = await import(
+			"./sale-read-model.handlers.server"
+		);
+		return await handleGetSaleReceiptByReceiptNumberForPos(data);
+	});
 
 /** Ventas recientes (resumen) — tenant-aware. */
 export const listRecentSalesForPosFn = createServerFn({ method: "POST" })
 	.inputValidator((data: unknown) => listRecentSalesSchema.parse(data ?? {}))
-	.handler(async ({ data }) => handleListRecentSalesForPos(data));
+	.handler(async ({ data }) => {
+		const { handleListRecentSalesForPos } = await import(
+			"./sale-read-model.handlers.server"
+		);
+		return await handleListRecentSalesForPos(data);
+	});

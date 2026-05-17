@@ -78,3 +78,36 @@ export async function requirePosOperationTenantForRoute(redirectTo: string) {
 		redirectForTenantAuthError(error, redirectTo);
 	}
 }
+
+function redirectForPlatformAuthError(
+	error: unknown,
+	redirectTo: string,
+): never {
+	if (error instanceof Error && error.message === "UNAUTHORIZED") {
+		throw redirect({
+			to: "/login",
+			search: { redirect: redirectTo },
+		});
+	}
+
+	if (error instanceof Error && error.message === "FORBIDDEN") {
+		throw redirect({ to: "/dashboard" });
+	}
+
+	throw error;
+}
+
+/**
+ * Solo operadores SaaS (tabla platform_admins), no owners de negocio.
+ */
+export async function requirePlatformAdminForRoute(redirectTo: string) {
+	await requireAuthForRoute(redirectTo);
+
+	const { ensurePlatformAdminFn } = await import("../platform/platform.rpc");
+
+	try {
+		return await ensurePlatformAdminFn();
+	} catch (error) {
+		redirectForPlatformAuthError(error, redirectTo);
+	}
+}

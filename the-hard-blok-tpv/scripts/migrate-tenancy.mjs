@@ -37,22 +37,13 @@ const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 const client = await pool.connect();
 
 try {
-	const ddlPath = join(root, "db/migrations/001_tenancy_foundations.sql");
-	await client.query(readFileSync(ddlPath, "utf8"));
-	console.log("Applied DDL: db/migrations/001_tenancy_foundations.sql");
-
-	const owners = await client.query(
-		`
-    SELECT COUNT(*)::int AS n
-    FROM users
-    WHERE role = 'owner' AND is_active = TRUE
-    `,
-	);
-
-	if (owners.rows[0].n > 1) {
-		throw new Error(
-			`Hay ${owners.rows[0].n} usuarios owner activos. Deja solo uno antes de migrar tenancy.`,
-		);
+	for (const file of [
+		"001_tenancy_foundations.sql",
+		"006_business_members_one_owner_per_business_uidx.sql",
+	]) {
+		const ddlPath = join(root, "db/migrations", file);
+		await client.query(readFileSync(ddlPath, "utf8"));
+		console.log(`Applied DDL: db/migrations/${file}`);
 	}
 
 	await client.query(
@@ -75,25 +66,52 @@ try {
 		throw new Error("No se pudo resolver el negocio default tras INSERT.");
 	}
 
-	const members = await client.query(
+	const defaultOwner = await client.query(
+		`
+    SELECT id
+    FROM users
+    WHERE role = 'owner' AND is_active = TRUE
+    ORDER BY created_at ASC
+    LIMIT 1
+    `,
+	);
+	const defaultOwnerId = defaultOwner.rows[0]?.id ?? null;
+
+	let members = { rowCount: 0 };
+
+	if (defaultOwnerId) {
+		await client.query(
+			`
+      INSERT INTO business_members (business_id, user_id, role, status, is_primary)
+      VALUES ($1::uuid, $2::uuid, 'owner', 'active', TRUE)
+      ON CONFLICT (business_id, user_id) DO UPDATE
+      SET role = 'owner', status = 'active', updated_at = NOW()
+      `,
+			[businessId, defaultOwnerId],
+		);
+	}
+
+	members = await client.query(
 		`
     INSERT INTO business_members (business_id, user_id, role, status, is_primary)
     SELECT
       $1::uuid,
       u.id,
-      u.role,
+      CASE
+        WHEN u.role = 'owner' AND u.id = $2::uuid THEN 'owner'
+        WHEN u.role = 'owner' THEN 'manager'
+        ELSE u.role
+      END,
       CASE WHEN u.is_active THEN 'active' ELSE 'suspended' END,
       TRUE
     FROM users u
-    ON CONFLICT (business_id, user_id) DO UPDATE
-    SET
-      role = EXCLUDED.role,
-      status = EXCLUDED.status,
-      is_primary = TRUE,
-      updated_at = NOW()
+    WHERE NOT EXISTS (
+      SELECT 1 FROM business_members bm WHERE bm.user_id = u.id
+    )
+    ON CONFLICT (business_id, user_id) DO NOTHING
     RETURNING id
     `,
-		[businessId],
+		[businessId, defaultOwnerId],
 	);
 
 	console.log(

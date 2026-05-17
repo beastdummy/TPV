@@ -18,10 +18,12 @@ import {
 	handleGetSaleReceiptByIdForPos,
 	handleGetSaleReceiptByReceiptNumberForPos,
 	handleListRecentSalesForPos,
+} from "./sale-read-model.handlers.server";
+import {
 	listRecentSalesSchema,
 	saleReceiptByIdSchema,
 	saleReceiptByReceiptNumberSchema,
-} from "./sale-read-model.server-fns";
+} from "./sale-read-model.schemas";
 
 const saleId = "00000000-0000-4000-8000-000000000001";
 const receipt = {

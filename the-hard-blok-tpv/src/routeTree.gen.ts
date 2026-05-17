@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SalesRouteImport } from './routes/sales'
 import { Route as RegisterRouteImport } from './routes/register'
+import { Route as PlatformRouteImport } from './routes/platform'
 import { Route as PinRouteImport } from './routes/pin'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -40,6 +41,11 @@ const SalesRoute = SalesRouteImport.update({
 const RegisterRoute = RegisterRouteImport.update({
   id: '/register',
   path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlatformRoute = PlatformRouteImport.update({
+  id: '/platform',
+  path: '/platform',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PinRoute = PinRouteImport.update({
@@ -119,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/pin': typeof PinRoute
+  '/platform': typeof PlatformRoute
   '/register': typeof RegisterRoute
   '/sales': typeof SalesRoute
   '/signup': typeof SignupRoute
@@ -138,6 +145,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/pin': typeof PinRoute
+  '/platform': typeof PlatformRoute
   '/register': typeof RegisterRoute
   '/sales': typeof SalesRoute
   '/signup': typeof SignupRoute
@@ -158,6 +166,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/pin': typeof PinRoute
+  '/platform': typeof PlatformRoute
   '/register': typeof RegisterRoute
   '/sales': typeof SalesRoute
   '/signup': typeof SignupRoute
@@ -179,6 +188,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/pin'
+    | '/platform'
     | '/register'
     | '/sales'
     | '/signup'
@@ -198,6 +208,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/pin'
+    | '/platform'
     | '/register'
     | '/sales'
     | '/signup'
@@ -217,6 +228,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/pin'
+    | '/platform'
     | '/register'
     | '/sales'
     | '/signup'
@@ -237,6 +249,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   PinRoute: typeof PinRoute
+  PlatformRoute: typeof PlatformRoute
   RegisterRoute: typeof RegisterRoute
   SalesRoute: typeof SalesRoute
   SignupRoute: typeof SignupRoute
@@ -271,6 +284,13 @@ declare module '@tanstack/react-router' {
       path: '/register'
       fullPath: '/register'
       preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/platform': {
+      id: '/platform'
+      path: '/platform'
+      fullPath: '/platform'
+      preLoaderRoute: typeof PlatformRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pin': {
@@ -393,6 +413,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   PinRoute: PinRoute,
+  PlatformRoute: PlatformRoute,
   RegisterRoute: RegisterRoute,
   SalesRoute: SalesRoute,
   SignupRoute: SignupRoute,
