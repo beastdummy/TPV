@@ -19,6 +19,11 @@ export {
 } from "./errors";
 export { executeFinalizeSaleCommand } from "./finalize-sale-command.server";
 export {
+	aggregateSaleLinesByProduct,
+	decrementStockForSale,
+	SALE_STOCK_MOVEMENT_TYPE,
+} from "./finalize-sale-stock.server";
+export {
 	computeSaleLine,
 	computeSaleTotals,
 	roundMoney,

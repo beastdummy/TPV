@@ -118,6 +118,7 @@ describe("finalize-sale-access.server (Fase C1)", () => {
 				business_id: businessId,
 				user_id: userId,
 				cash_session_id: sessionId,
+				warehouse_id: "principal",
 				idempotency_key: "sale:v1:biz-1:finalize_sale:req-1",
 			}),
 		);

@@ -2,6 +2,7 @@ import type { PoolClient } from "pg";
 
 import { db } from "../../../lib/db.server";
 import { SALES_TX_ERROR_CODES, SalesTransactionError } from "./errors";
+import { decrementStockForSale } from "./finalize-sale-stock.server";
 import {
 	type ComputedSaleLine,
 	computeSaleLine,
@@ -15,6 +16,7 @@ export type ExecuteFinalizeSaleCommandInput = {
 	idempotency_key: string;
 	cash_session_id: string;
 	terminal_id: string;
+	warehouse_id: string;
 	payment_method: SalePaymentMethod;
 	notes: string;
 	lines: ComputedSaleLine[];
@@ -354,6 +356,14 @@ export async function executeFinalizeSaleCommand(
 		const sale = await insertSaleHeader(client, input, totals, receiptNumber);
 
 		await insertSaleItems(client, sale.id, lines);
+
+		await decrementStockForSale(client, {
+			warehouse_id: input.warehouse_id,
+			user_id: input.user_id,
+			sale_id: sale.id,
+			lines,
+		});
+
 		await completeSale(client, sale.id);
 
 		const result = mapFinalizeResult(sale, input.idempotency_key);

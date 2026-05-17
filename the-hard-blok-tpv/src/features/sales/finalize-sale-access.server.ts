@@ -82,7 +82,7 @@ function validateFinalizeSaleInput(input: FinalizeSaleInput): void {
 }
 
 /**
- * Finaliza una venta (Fase C1): TX única, idempotencia, persistencia sin stock ni pagos.
+ * Finaliza una venta (Fase C1/C2): TX única, idempotencia, stock y persistencia (sin pagos).
  */
 export async function finalizeSale(
 	input: FinalizeSaleInput,
@@ -109,6 +109,7 @@ export async function finalizeSale(
 		idempotency_key: idempotencyKey,
 		cash_session_id: session.id,
 		terminal_id: terminalId,
+		warehouse_id: input.warehouse_id.trim(),
 		payment_method: input.payment_method,
 		notes: input.notes?.trim() ?? "",
 		lines,

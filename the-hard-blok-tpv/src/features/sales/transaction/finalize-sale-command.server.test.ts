@@ -10,10 +10,12 @@ vi.mock("../../../lib/db.server", () => ({
 
 import { SALES_TX_ERROR_CODES, SalesTransactionError } from "./errors";
 import { executeFinalizeSaleCommand } from "./finalize-sale-command.server";
+import { SALE_STOCK_MOVEMENT_TYPE } from "./finalize-sale-stock.server";
 
 const businessId = "biz-1";
 const userId = "user-1";
 const sessionId = "sess-1";
+const warehouseId = "principal";
 const productId = "00000000-0000-4000-8000-000000000002";
 
 const baseCommandInput = {
@@ -22,6 +24,7 @@ const baseCommandInput = {
 	idempotency_key: "sale:v1:biz-1:finalize_sale:req-cmd",
 	cash_session_id: sessionId,
 	terminal_id: "tpv-1",
+	warehouse_id: warehouseId,
 	payment_method: "cash" as const,
 	notes: "",
 	lines: [
@@ -39,9 +42,23 @@ const baseCommandInput = {
 	],
 };
 
-function createMockClient() {
+type StockMovementRecord = {
+	product_id: string;
+	movement_type: string;
+	quantity: number;
+};
+
+function createMockClient(options?: { initialStock?: Record<string, number> }) {
 	const calls: string[] = [];
 	let receiptCounter = 41;
+	const initialStock = options?.initialStock ?? { [productId]: 100 };
+	const stock = new Map<string, number>(
+		Object.entries(initialStock).map(([id, qty]) => [
+			`${id}:${warehouseId}`,
+			qty,
+		]),
+	);
+	const stockMovements: StockMovementRecord[] = [];
 
 	const client = {
 		query: vi.fn(async (sql: string, params?: unknown[]) => {
@@ -106,6 +123,34 @@ function createMockClient() {
 			}
 
 			if (
+				normalized.includes("FROM product_stock") &&
+				normalized.includes("FOR UPDATE")
+			) {
+				const pid = params?.[0] as string;
+				const key = `${pid}:${params?.[1]}`;
+				if (!stock.has(key)) {
+					return { rows: [] };
+				}
+				return { rows: [{ quantity: stock.get(key) }] };
+			}
+
+			if (normalized.includes("UPDATE product_stock")) {
+				const pid = params?.[0] as string;
+				const key = `${pid}:${params?.[1]}`;
+				stock.set(key, params?.[2] as number);
+				return { rows: [] };
+			}
+
+			if (normalized.includes("INSERT INTO stock_movements")) {
+				stockMovements.push({
+					product_id: params?.[0] as string,
+					movement_type: params?.[2] as string,
+					quantity: params?.[3] as number,
+				});
+				return { rows: [] };
+			}
+
+			if (
 				normalized.includes("UPDATE sales") &&
 				normalized.includes("completed")
 			) {
@@ -120,6 +165,8 @@ function createMockClient() {
 		}),
 		release: vi.fn(),
 		getCalls: () => calls,
+		getStock: (pid: string) => stock.get(`${pid}:${warehouseId}`),
+		getStockMovements: () => stockMovements,
 	};
 
 	return client;
@@ -147,7 +194,46 @@ describe("finalize-sale-command.server", () => {
 		expect(client.query).not.toHaveBeenCalledWith("ROLLBACK");
 	});
 
-	it("returns cached result for completed idempotency key", async () => {
+	it("decrements stock before completing the sale", async () => {
+		const client = createMockClient({ initialStock: { [productId]: 10 } });
+		mocks.connect.mockResolvedValue(client);
+
+		await executeFinalizeSaleCommand({
+			...baseCommandInput,
+			lines: [
+				{
+					...baseCommandInput.lines[0],
+					quantity: 4,
+				},
+			],
+		});
+
+		expect(client.getStock(productId)).toBe(6);
+		expect(client.getStockMovements()).toEqual([
+			{
+				product_id: productId,
+				movement_type: SALE_STOCK_MOVEMENT_TYPE,
+				quantity: 4,
+			},
+		]);
+
+		const itemIndex = client
+			.getCalls()
+			.findIndex((sql) => sql.includes("INSERT INTO sale_items"));
+		const stockIndex = client
+			.getCalls()
+			.findIndex((sql) => sql.includes("FROM product_stock"));
+		const completeIndex = client
+			.getCalls()
+			.findIndex(
+				(sql) => sql.includes("UPDATE sales") && sql.includes("completed"),
+			);
+		expect(itemIndex).toBeGreaterThanOrEqual(0);
+		expect(stockIndex).toBeGreaterThan(itemIndex);
+		expect(completeIndex).toBeGreaterThan(stockIndex);
+	});
+
+	it("returns cached result for completed idempotency key without stock writes", async () => {
 		const client = createMockClient();
 		const cached = {
 			sale_id: "sale-cached",
@@ -195,6 +281,9 @@ describe("finalize-sale-command.server", () => {
 		expect(
 			client.getCalls().some((sql) => sql.includes("INSERT INTO sales")),
 		).toBe(false);
+		expect(
+			client.getCalls().some((sql) => sql.includes("FROM product_stock")),
+		).toBe(false);
 	});
 
 	it("rolls back when a sale line insert fails", async () => {
@@ -215,6 +304,40 @@ describe("finalize-sale-command.server", () => {
 
 		expect(client.getCalls()).toContain("ROLLBACK");
 		expect(client.getCalls()).not.toContain("COMMIT");
+		expect(client.getStockMovements()).toHaveLength(0);
+	});
+
+	it("rolls back entire sale when stock is insufficient", async () => {
+		const client = createMockClient({ initialStock: { [productId]: 1 } });
+		mocks.connect.mockResolvedValue(client);
+
+		await expect(
+			executeFinalizeSaleCommand({
+				...baseCommandInput,
+				lines: [{ ...baseCommandInput.lines[0], quantity: 2 }],
+			}),
+		).rejects.toMatchObject({
+			code: SALES_TX_ERROR_CODES.INSUFFICIENT_STOCK,
+		});
+
+		expect(client.getCalls()).toContain("ROLLBACK");
+		expect(client.getCalls()).not.toContain("COMMIT");
+		expect(client.getStock(productId)).toBe(1);
+		expect(client.getStockMovements()).toHaveLength(0);
+	});
+
+	it("rolls back entire sale when stock row is missing", async () => {
+		const client = createMockClient({ initialStock: {} });
+		mocks.connect.mockResolvedValue(client);
+
+		await expect(
+			executeFinalizeSaleCommand(baseCommandInput),
+		).rejects.toMatchObject({
+			code: SALES_TX_ERROR_CODES.STOCK_NOT_FOUND,
+		});
+
+		expect(client.getCalls()).toContain("ROLLBACK");
+		expect(client.getStockMovements()).toHaveLength(0);
 	});
 
 	it("uses advisory lock before allocating receipt_number", async () => {
@@ -294,5 +417,60 @@ describe("finalize-sale-command.server", () => {
 		).rejects.toMatchObject({
 			code: SALES_TX_ERROR_CODES.IDEMPOTENCY_CONFLICT,
 		});
+	});
+
+	it("does not decrement stock twice on idempotent replay", async () => {
+		const client = createMockClient({ initialStock: { [productId]: 10 } });
+		mocks.connect.mockResolvedValue(client);
+
+		await executeFinalizeSaleCommand(baseCommandInput);
+		expect(client.getStock(productId)).toBe(9);
+		expect(client.getStockMovements()).toHaveLength(1);
+
+		const cached = {
+			sale_id: "sale-cached",
+			receipt_number: 7,
+			status: "completed" as const,
+			total: 4,
+			idempotency_key: baseCommandInput.idempotency_key,
+		};
+
+		client.query.mockImplementation(async (sql: string) => {
+			const normalized = sql.replace(/\s+/g, " ").trim();
+			client.getCalls().push(normalized);
+
+			if (
+				normalized === "BEGIN" ||
+				normalized === "COMMIT" ||
+				normalized === "ROLLBACK"
+			) {
+				return { rows: [] };
+			}
+			if (normalized.includes("FROM cash_sessions")) {
+				return { rows: [{ status: "open" }] };
+			}
+			if (normalized.includes("INSERT INTO sale_idempotency_keys")) {
+				return { rows: [] };
+			}
+			if (normalized.includes("FROM sale_idempotency_keys")) {
+				return {
+					rows: [
+						{
+							id: "idem-1",
+							sale_id: cached.sale_id,
+							response_payload: cached,
+							completed_at: "2026-01-01T12:00:00Z",
+						},
+					],
+				};
+			}
+			throw new Error(`Unexpected on replay: ${normalized}`);
+		});
+
+		await expect(executeFinalizeSaleCommand(baseCommandInput)).resolves.toEqual(
+			cached,
+		);
+		expect(client.getStock(productId)).toBe(9);
+		expect(client.getStockMovements()).toHaveLength(1);
 	});
 });
