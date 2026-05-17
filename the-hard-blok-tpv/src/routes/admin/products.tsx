@@ -9,22 +9,21 @@ import { PlusCircle, Search, Trash2 } from "lucide-react";
 
 import { AdminShell } from "../../components/layout/admin-shell";
 import {
-	deleteProductFn,
-	getCategoriesFn,
-	getProductsFn,
-} from "../../features/admin/server-fns";
+	deleteProductForAdminFn,
+	getCategoriesForProductsPageFn,
+	getProductsForAdminFn,
+} from "../../features/admin/products.server-fns";
 import type { Category, Product } from "../../features/admin/types";
-import { requireRoleForRoute } from "../../features/auth/route-guards";
-import { CATALOG_MANAGEMENT_ROLES } from "../../features/auth/types";
+import { requireCatalogManagementTenantForRoute } from "../../features/auth/route-guards";
 
 export const Route = createFileRoute("/admin/products")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(CATALOG_MANAGEMENT_ROLES, location.href);
+		await requireCatalogManagementTenantForRoute(location.href);
 	},
 	loader: async () => {
 		const [categories, products] = await Promise.all([
-			getCategoriesFn(),
-			getProductsFn(),
+			getCategoriesForProductsPageFn(),
+			getProductsForAdminFn(),
 		]);
 
 		return { categories, products };
@@ -51,7 +50,7 @@ function AdminProductsPage() {
 		if (!confirmed) return;
 
 		try {
-			await deleteProductFn({
+			await deleteProductForAdminFn({
 				data: { id: productId },
 			});
 

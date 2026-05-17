@@ -1,7 +1,7 @@
 import { redirect } from "@tanstack/react-router";
 
 import { getAppUserFn } from "./auth.rpc";
-import type { Role } from "./types";
+import { CATALOG_MANAGEMENT_ROLES, type Role } from "./types";
 
 export async function requireAuthForRoute(redirectTo: string) {
 	const user = await getAppUserFn();
@@ -24,4 +24,38 @@ export async function requireRoleForRoute(roles: Role[], redirectTo: string) {
 	}
 
 	return user;
+}
+
+function redirectForTenantAuthError(error: unknown, redirectTo: string): never {
+	if (error instanceof Error && error.message === "UNAUTHORIZED") {
+		throw redirect({
+			to: "/login",
+			search: { redirect: redirectTo },
+		});
+	}
+
+	if (error instanceof Error && error.message === "FORBIDDEN") {
+		throw redirect({ to: "/dashboard" });
+	}
+
+	throw error;
+}
+
+/**
+ * Patrón oficial de migración tenant-aware en rutas (client-safe).
+ * 1) requireRoleForRoute — legacy users.role (exact match)
+ * 2) ensureCatalogManagementTenantFn — business_members + jerarquía
+ */
+export async function requireCatalogManagementTenantForRoute(
+	redirectTo: string,
+) {
+	await requireRoleForRoute(CATALOG_MANAGEMENT_ROLES, redirectTo);
+
+	const { ensureCatalogManagementTenantFn } = await import("./auth.rpc");
+
+	try {
+		return await ensureCatalogManagementTenantFn();
+	} catch (error) {
+		redirectForTenantAuthError(error, redirectTo);
+	}
 }

@@ -59,6 +59,17 @@ export async function ensureCatalogManagementRole() {
 	return await ensureRoleIn(CATALOG_MANAGEMENT_ROLES);
 }
 
+/**
+ * Tenant-aware catalog guard (business_members + legacy fallback).
+ * Usar desde rutas vía requireCatalogManagementTenantForRoute (RPC, client-safe).
+ */
+export const ensureCatalogManagementTenantFn = createServerFn({
+	method: "GET",
+}).handler(async () => {
+	const { requireBusinessRole } = await import("./tenant-guards.server");
+	return await requireBusinessRole(CATALOG_MANAGEMENT_ROLES);
+});
+
 export async function ensurePosOperationRole() {
 	return await ensureRoleIn(POS_OPERATION_ROLES);
 }
