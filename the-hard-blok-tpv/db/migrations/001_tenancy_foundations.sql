@@ -3,7 +3,7 @@
 -- =============================================================================
 -- Tablas: businesses, business_members
 -- Compat: trigger mantiene users.role desde membresía primaria activa
--- Backfill: npm run db:migrate:tenancy (DEFAULT_BUSINESS_* en .env)
+-- Aplicar: npm run db:migrate:tenancy (solo DDL, sin bootstrap de negocios)
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS businesses (

@@ -1,6 +1,5 @@
 import { db } from "../../lib/db.server";
 import type { Role } from "../auth/types";
-import { getDefaultBusinessConfig } from "./config.server";
 import type {
 	Business,
 	BusinessMember,
@@ -63,11 +62,6 @@ export async function getBusinessBySlug(
 
 	const row = result.rows[0];
 	return row ? mapBusiness(row) : null;
-}
-
-export async function getDefaultBusiness(): Promise<Business | null> {
-	const { slug } = getDefaultBusinessConfig();
-	return getBusinessBySlug(slug);
 }
 
 export async function getMembership(

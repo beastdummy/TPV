@@ -62,7 +62,7 @@ export type LegacyTenantContext = {
 export type CurrentTenantContext = TenantContext | LegacyTenantContext;
 
 /**
- * Usuario autenticado + rol efectivo (membresía del negocio default o users.role).
+ * Usuario autenticado + rol efectivo (membresía primaria activa o users.role legacy).
  */
 export async function getCurrentTenantContext(): Promise<CurrentTenantContext | null> {
 	const user = await getAppUserFn();
@@ -91,7 +91,7 @@ export async function getCurrentTenantContext(): Promise<CurrentTenantContext | 
 }
 
 /**
- * Exige sesión y negocio default resuelto (sin fallback legacy).
+ * Exige sesión y negocio tenant resuelto (membresía primaria, sin fallback legacy).
  */
 export async function requireTenantContext(): Promise<TenantContext> {
 	const ctx = await getCurrentTenantContext();

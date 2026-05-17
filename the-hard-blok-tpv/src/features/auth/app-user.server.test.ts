@@ -2,16 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
 	query: vi.fn(),
-	ensureDefaultBusinessMembership: vi.fn(),
 	hashPassword: vi.fn(),
 }));
 
 vi.mock("../../lib/db.server", () => ({
 	db: { query: mocks.query },
-}));
-
-vi.mock("../tenancy/membership.server", () => ({
-	ensureDefaultBusinessMembership: mocks.ensureDefaultBusinessMembership,
 }));
 
 vi.mock("./password.server", () => ({
@@ -26,7 +21,7 @@ describe("syncAppUserFromBetterAuthSession", () => {
 		delete process.env.GOOGLE_DEFAULT_ROLE;
 	});
 
-	it("ensures default membership for existing user by google_sub", async () => {
+	it("syncs existing user by google_sub without creating business membership", async () => {
 		mocks.query.mockResolvedValueOnce({
 			rows: [
 				{
@@ -39,7 +34,6 @@ describe("syncAppUserFromBetterAuthSession", () => {
 			],
 		});
 		mocks.query.mockResolvedValueOnce({ rows: [] });
-		mocks.ensureDefaultBusinessMembership.mockResolvedValue({});
 
 		const result = await syncAppUserFromBetterAuthSession({
 			userId: "google-1",
@@ -47,11 +41,7 @@ describe("syncAppUserFromBetterAuthSession", () => {
 			name: "Ada Lovelace",
 		});
 
-		expect(mocks.ensureDefaultBusinessMembership).toHaveBeenCalledWith({
-			userId: "user-1",
-			role: "manager",
-			isActive: true,
-		});
+		expect(mocks.query).toHaveBeenCalledTimes(2);
 		expect(result).toEqual({
 			id: "user-1",
 			email: "a@example.com",
@@ -60,13 +50,12 @@ describe("syncAppUserFromBetterAuthSession", () => {
 		});
 	});
 
-	it("ensures default membership for newly created user", async () => {
+	it("creates new user without default business membership", async () => {
 		mocks.query
 			.mockResolvedValueOnce({ rows: [] })
 			.mockResolvedValueOnce({ rows: [] });
 		mocks.hashPassword.mockReturnValue("hash");
 		mocks.query.mockResolvedValueOnce({ rows: [{ id: "user-new" }] });
-		mocks.ensureDefaultBusinessMembership.mockResolvedValue({});
 
 		process.env.GOOGLE_DEFAULT_ROLE = "cashier";
 
@@ -76,11 +65,12 @@ describe("syncAppUserFromBetterAuthSession", () => {
 			name: "New User",
 		});
 
-		expect(mocks.ensureDefaultBusinessMembership).toHaveBeenCalledWith({
-			userId: "user-new",
-			role: "cashier",
-			isActive: true,
-		});
+		expect(mocks.query).toHaveBeenCalledTimes(3);
+		expect(
+			mocks.query.mock.calls.some(([sql]) =>
+				String(sql).includes("INSERT INTO business_members"),
+			),
+		).toBe(false);
 		expect(result.role).toBe("cashier");
 	});
 });

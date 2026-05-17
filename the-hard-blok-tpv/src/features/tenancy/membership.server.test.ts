@@ -1,10 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-	getDefaultBusiness: vi.fn(),
-	getMembership: vi.fn(),
-	getPrimaryMembership: vi.fn(),
 	query: vi.fn(),
+	getPrimaryMembership: vi.fn(),
 }));
 
 vi.mock("../../lib/db.server", () => ({
@@ -12,27 +10,22 @@ vi.mock("../../lib/db.server", () => ({
 }));
 
 vi.mock("./queries.server", () => ({
-	getDefaultBusiness: mocks.getDefaultBusiness,
-	getMembership: mocks.getMembership,
 	getPrimaryMembership: mocks.getPrimaryMembership,
 }));
 
-import {
-	ensureDefaultBusinessMembership,
-	ensurePrimaryMembership,
-} from "./membership.server";
+import { ensurePrimaryMembership } from "./membership.server";
 
 describe("ensurePrimaryMembership", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
 
-	it("does nothing when another business is already primary", async () => {
+	it("no-ops when another primary membership already exists on a different business", async () => {
 		mocks.getPrimaryMembership.mockResolvedValue({
 			id: "mem-other",
 			businessId: "biz-other",
 			userId: "user-1",
-			role: "cashier",
+			role: "owner",
 			status: "active",
 			isPrimary: true,
 			business: {
@@ -54,123 +47,46 @@ describe("ensurePrimaryMembership", () => {
 		expect(mocks.query).not.toHaveBeenCalled();
 	});
 
-	it("sets primary when user has no primary membership", async () => {
+	it("marks membership primary when user has no primary yet", async () => {
 		mocks.getPrimaryMembership.mockResolvedValue(null);
+		mocks.query.mockResolvedValue({ rows: [] });
 
 		await ensurePrimaryMembership({
 			userId: "user-1",
-			businessId: "biz-default",
-			membershipId: "mem-default",
+			businessId: "biz-1",
+			membershipId: "mem-1",
 		});
 
 		expect(mocks.query).toHaveBeenCalledWith(
 			expect.stringContaining("SET is_primary = TRUE"),
-			["mem-default", "user-1", "biz-default"],
+			["mem-1", "user-1", "biz-1"],
 		);
 	});
-});
 
-describe("ensureDefaultBusinessMembership", () => {
-	afterEach(() => {
-		vi.clearAllMocks();
-	});
-
-	it("throws when default business is missing", async () => {
-		mocks.getDefaultBusiness.mockResolvedValue(null);
-
-		await expect(
-			ensureDefaultBusinessMembership({
-				userId: "user-1",
-				role: "cashier",
-				isActive: true,
-			}),
-		).rejects.toThrow(/db:migrate:tenancy/);
-	});
-
-	it("upserts membership and ensures primary", async () => {
-		mocks.getDefaultBusiness.mockResolvedValue({
-			id: "biz-default",
-			slug: "default",
-			name: "The Hard Blok",
-			status: "active",
-			timezone: "Europe/Madrid",
-			currencyCode: "EUR",
-		});
-		mocks.query.mockResolvedValue({
-			rows: [
-				{
-					id: "mem-1",
-					business_id: "biz-default",
-					user_id: "user-1",
-					role: "manager",
-					status: "active",
-					is_primary: false,
-				},
-			],
-		});
-		mocks.getPrimaryMembership.mockResolvedValue(null);
-		mocks.getMembership.mockResolvedValue({
+	it("no-ops when membership is already primary", async () => {
+		mocks.getPrimaryMembership.mockResolvedValue({
 			id: "mem-1",
-			businessId: "biz-default",
+			businessId: "biz-1",
 			userId: "user-1",
-			role: "manager",
+			role: "owner",
 			status: "active",
 			isPrimary: true,
+			business: {
+				id: "biz-1",
+				slug: "cafe",
+				name: "Cafe",
+				status: "active",
+				timezone: "Europe/Madrid",
+				currencyCode: "EUR",
+			},
 		});
 
-		const membership = await ensureDefaultBusinessMembership({
+		await ensurePrimaryMembership({
 			userId: "user-1",
-			role: "manager",
-			isActive: true,
+			businessId: "biz-1",
+			membershipId: "mem-1",
 		});
 
-		expect(mocks.query).toHaveBeenCalledWith(
-			expect.stringContaining("INSERT INTO business_members"),
-			["biz-default", "user-1", "manager", "active"],
-		);
-		expect(membership.isPrimary).toBe(true);
-	});
-
-	it("uses suspended status when user is inactive", async () => {
-		mocks.getDefaultBusiness.mockResolvedValue({
-			id: "biz-default",
-			slug: "default",
-			name: "The Hard Blok",
-			status: "active",
-			timezone: "Europe/Madrid",
-			currencyCode: "EUR",
-		});
-		mocks.query.mockResolvedValue({
-			rows: [
-				{
-					id: "mem-1",
-					business_id: "biz-default",
-					user_id: "user-1",
-					role: "cashier",
-					status: "suspended",
-					is_primary: false,
-				},
-			],
-		});
-		mocks.getPrimaryMembership.mockResolvedValue(null);
-		mocks.getMembership.mockResolvedValue({
-			id: "mem-1",
-			businessId: "biz-default",
-			userId: "user-1",
-			role: "cashier",
-			status: "suspended",
-			isPrimary: true,
-		});
-
-		await ensureDefaultBusinessMembership({
-			userId: "user-1",
-			role: "cashier",
-			isActive: false,
-		});
-
-		expect(mocks.query).toHaveBeenCalledWith(
-			expect.stringContaining("INSERT INTO business_members"),
-			["biz-default", "user-1", "cashier", "suspended"],
-		);
+		expect(mocks.query).not.toHaveBeenCalled();
 	});
 });

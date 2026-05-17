@@ -13,7 +13,7 @@ export type PosBusinessContext = {
 	role: Role;
 };
 
-/** Negocio activo para operaciones POS (membresía o fallback legacy + default business). */
+/** Negocio activo para operaciones POS (membresía primaria o fallback legacy). */
 export async function resolvePosBusinessContext(): Promise<PosBusinessContext> {
 	const ctx = await ensurePosOperationBusinessRole();
 

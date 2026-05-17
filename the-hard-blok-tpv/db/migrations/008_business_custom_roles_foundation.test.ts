@@ -19,5 +19,9 @@ describe("008 business custom roles foundation", () => {
 		expect(migrationSql).toContain(
 			"DROP CONSTRAINT IF EXISTS business_members_role_check",
 		);
+		expect(migrationSql).toContain("pg_constraint");
+		expect(migrationSql).toContain(
+			"business_members_role_nonempty_check",
+		);
 	});
 });

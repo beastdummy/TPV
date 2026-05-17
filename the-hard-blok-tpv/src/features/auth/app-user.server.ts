@@ -1,7 +1,6 @@
 import { randomBytes } from "node:crypto";
 
 import { db } from "../../lib/db.server";
-import { ensureDefaultBusinessMembership } from "../tenancy/membership.server";
 import { hashPassword } from "./password.server";
 import type { AuthUser, Role } from "./types";
 
@@ -22,18 +21,6 @@ function resolveDefaultRoleForNewUser(): Role {
 	}
 
 	return "cashier";
-}
-
-async function syncTenancyMembershipForUser(user: {
-	id: string;
-	role: Role;
-	is_active: boolean;
-}) {
-	await ensureDefaultBusinessMembership({
-		userId: user.id,
-		role: user.role,
-		isActive: user.is_active,
-	});
 }
 
 function toSessionUser(
@@ -82,8 +69,6 @@ export async function syncAppUserFromBetterAuthSession(params: {
 			[user.id, email, params.name],
 		);
 
-		await syncTenancyMembershipForUser(user);
-
 		return toSessionUser(user, email, params.name);
 	}
 
@@ -112,8 +97,6 @@ export async function syncAppUserFromBetterAuthSession(params: {
 			[user.id, googleSub, params.name],
 		);
 
-		await syncTenancyMembershipForUser(user);
-
 		return toSessionUser(user, email, params.name);
 	}
 
@@ -136,8 +119,5 @@ export async function syncAppUserFromBetterAuthSession(params: {
 		throw new Error("No se pudo crear el usuario en la base de datos.");
 	}
 
-	const createdUser = { id, role, is_active: true };
-	await syncTenancyMembershipForUser(createdUser);
-
-	return toSessionUser(createdUser, email, params.name);
+	return toSessionUser({ id, role }, email, params.name);
 }

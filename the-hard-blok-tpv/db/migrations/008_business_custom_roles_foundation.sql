@@ -1,15 +1,25 @@
 -- =============================================================================
 -- 008 — Custom business roles foundation (no UI yet)
 -- =============================================================================
+-- Idempotent: safe to run multiple times.
 -- business_members.role stays TEXT; "owner" remains fixed/special.
--- Legacy admin/manager/cashier may still exist in rows until migrated.
 -- =============================================================================
 
 ALTER TABLE business_members DROP CONSTRAINT IF EXISTS business_members_role_check;
 
-ALTER TABLE business_members
-  ADD CONSTRAINT business_members_role_nonempty_check
-  CHECK (char_length(trim(role)) > 0);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'business_members_role_nonempty_check'
+      AND conrelid = 'public.business_members'::regclass
+  ) THEN
+    ALTER TABLE business_members
+      ADD CONSTRAINT business_members_role_nonempty_check
+      CHECK (char_length(trim(role)) > 0);
+  END IF;
+END $$;
 
 CREATE TABLE IF NOT EXISTS business_roles (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
