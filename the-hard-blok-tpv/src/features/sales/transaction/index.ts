@@ -25,6 +25,12 @@ export {
 	parseSaleIdempotencyKey,
 } from "./idempotency";
 export type {
+	CashSessionRow,
+	SaleIdempotencyKeyRow,
+	SaleItemRow,
+	SaleRow,
+} from "./schema-types";
+export type {
 	CashSessionStatus,
 	ClientTicketPhase,
 	FinalizeSaleInput,

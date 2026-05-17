@@ -17,6 +17,7 @@
     "db:schema": "node --env-file=.env ./scripts/apply-sql.mjs ./db/schema.sql",
     "db:seed": "node --env-file=.env ./scripts/apply-sql.mjs ./db/seed_admin.sql",
     "db:migrate:tenancy": "node --env-file=.env ./scripts/migrate-tenancy.mjs",
+    "db:migrate:sales": "node --env-file=.env ./scripts/migrate-sales.mjs",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose stop postgres",
     "docker:up": "docker compose up -d --build",

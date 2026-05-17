@@ -207,9 +207,9 @@ Migración: backfill con negocio default (`DEFAULT_BUSINESS_SLUG`) igual que ten
 
 ---
 
-## 10. Modelo de datos propuesto (referencia)
+## 10. Modelo de datos (Fase A aplicada)
 
-No aplicar aún en `schema.sql` sin migración dedicada.
+Migración: `db/migrations/002_sales_transaction_foundations.sql` — `npm run db:migrate:sales` (requiere tenancy).
 
 ```sql
 -- Esquema orientativo (simplificado)
@@ -218,7 +218,7 @@ sales (
   business_id UUID NOT NULL REFERENCES businesses(id),
   cash_session_id UUID NOT NULL,
   terminal_id TEXT,
-  ticket_number BIGINT NOT NULL,
+  receipt_number BIGINT NOT NULL,
   status TEXT NOT NULL, -- pending|completed|cancelled|refunded
   subtotal NUMERIC, tax_total NUMERIC, discount_total NUMERIC, total NUMERIC,
   payment_method TEXT, -- agregado MVP; normalizar a sale_payments después
@@ -252,7 +252,7 @@ Compatible con consultas existentes en `dashboard/queries.server.ts` (`status`, 
 
 | Fase | Entregable | Riesgo |
 |------|------------|--------|
-| A | Migración SQL + tipos | Bajo |
+| A | Migración SQL + tipos | Bajo — **hecho** (`002_sales_transaction_foundations.sql`) |
 | B | `cash_sessions` open/close (sin ventas) | Medio |
 | C | `finalizeSale` + idempotency + stock `product_stock` only | **Alto** |
 | D | Pagos reales / multipago | Alto |

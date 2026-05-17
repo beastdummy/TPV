@@ -68,7 +68,7 @@ export type FinalizeSaleInput = {
 /** Respuesta prevista tras finalize exitoso. */
 export type FinalizeSaleResult = {
 	sale_id: string;
-	ticket_number: number;
+	receipt_number: number;
 	status: Extract<SaleStatus, "completed">;
 	total: number;
 	idempotency_key: string;
