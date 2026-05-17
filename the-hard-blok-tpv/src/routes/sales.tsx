@@ -660,13 +660,30 @@ function SalesPage() {
 												: "bg-background hover:bg-muted"
 										}`}
 									>
-										<div>
-											<p className="text-sm font-semibold leading-tight">
-												{family.name}
-											</p>
-											<p className="mt-1 text-xs text-muted-foreground">
-												{family.description}
-											</p>
+										<div className="flex items-center gap-3">
+											<div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-muted">
+												{family.image_url ? (
+													<img
+														src={family.image_url}
+														alt={family.name}
+														className="h-full w-full object-cover"
+													/>
+												) : (
+													<div className="flex h-full w-full items-center justify-center px-1 text-center text-[10px] font-medium leading-tight text-muted-foreground">
+														{family.name}
+													</div>
+												)}
+											</div>
+											<div className="min-w-0">
+												<p className="text-sm font-semibold leading-tight">
+													{family.name}
+												</p>
+												{family.description ? (
+													<p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+														{family.description}
+													</p>
+												) : null}
+											</div>
 										</div>
 									</button>
 								);

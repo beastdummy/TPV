@@ -5,7 +5,7 @@ export async function getSalesCatalog(): Promise<SalesCatalog> {
 	const [categoriesResult, productsResult] = await Promise.all([
 		db.query<SalesCategory>(
 			`
-        SELECT id, name, description, sort_order
+        SELECT id, name, description, image_url, sort_order
         FROM categories
         WHERE is_active = true
         ORDER BY sort_order ASC, name ASC

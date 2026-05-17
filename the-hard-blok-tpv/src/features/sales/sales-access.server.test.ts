@@ -21,6 +21,7 @@ const sampleCatalog = {
 			id: "bebidas",
 			name: "Bebidas",
 			description: "",
+			image_url: "",
 			sort_order: 1,
 		},
 	],

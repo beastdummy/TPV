@@ -30,6 +30,7 @@ const sampleCategory = {
 	id: "bebidas",
 	name: "Bebidas",
 	description: "",
+	image_url: "",
 	sort_order: 1,
 	is_active: true,
 };

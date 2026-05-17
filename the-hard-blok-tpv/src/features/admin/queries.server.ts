@@ -2,12 +2,40 @@ import { db } from "../../lib/db.server";
 
 export async function getCategories() {
 	const result = await db.query(`
-    SELECT id, name, description, sort_order, is_active
+    SELECT id, name, description, image_url, sort_order, is_active
     FROM categories
     ORDER BY sort_order ASC
   `);
 
 	return result.rows;
+}
+
+export async function getCategoryById(categoryId: string) {
+	const result = await db.query(
+		`
+    SELECT id, name, description, image_url, sort_order, is_active
+    FROM categories
+    WHERE id = $1
+    LIMIT 1
+    `,
+		[categoryId],
+	);
+
+	return result.rows[0] ?? null;
+}
+
+export async function updateCategoryImageUrl(
+	categoryId: string,
+	imageUrl: string,
+) {
+	await db.query(
+		`
+    UPDATE categories
+    SET image_url = $2, updated_at = NOW()
+    WHERE id = $1
+    `,
+		[categoryId, imageUrl],
+	);
 }
 
 export async function getProducts() {

@@ -2,6 +2,7 @@ export type SalesCategory = {
 	id: string;
 	name: string;
 	description: string;
+	image_url: string;
 	sort_order: number;
 };
 

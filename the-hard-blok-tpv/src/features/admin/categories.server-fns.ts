@@ -8,6 +8,14 @@ import {
 	removeCategoryForAdmin,
 	updateCategoryForAdmin,
 } from "./categories-access.server";
+import {
+	CATEGORY_IMAGE_ERROR_CODES,
+	CategoryImageError,
+} from "./category-image/category-image.errors";
+import {
+	uploadCategoryImageFileForAdmin,
+	uploadCategoryImageFromRemoteUrlForAdmin,
+} from "./category-image/category-image-access.server";
 
 const categorySchema = z.object({
 	id: z.string().trim().min(1).max(80),
@@ -49,4 +57,51 @@ export const deleteCategoryForAdminFn = createServerFn({ method: "POST" })
 	.inputValidator((data: unknown) => idSchema.parse(data))
 	.handler(async ({ data }) => {
 		return await removeCategoryForAdmin(data.id);
+	});
+
+const remoteImageSchema = z.object({
+	categoryId: z.string().trim().min(1).max(80),
+	remoteUrl: z.string().trim().url().max(2048),
+});
+
+async function readUploadFromFormData(formData: FormData) {
+	const categoryId = String(formData.get("categoryId") ?? "").trim();
+	const file = formData.get("file");
+
+	if (!(file instanceof File)) {
+		throw new CategoryImageError(
+			CATEGORY_IMAGE_ERROR_CODES.MISSING_FILE,
+			"Falta el archivo de imagen.",
+		);
+	}
+
+	return {
+		categoryId,
+		buffer: Buffer.from(await file.arrayBuffer()),
+		mimeType: file.type || null,
+	};
+}
+
+/** Sube imagen de categoría (multipart) — tenant-aware. */
+export const uploadCategoryImageFileForAdminFn = createServerFn({
+	method: "POST",
+}).handler(async ({ data }) => {
+	if (!(data instanceof FormData)) {
+		throw new CategoryImageError(
+			CATEGORY_IMAGE_ERROR_CODES.MISSING_FILE,
+			"Se esperaba FormData con categoryId y file.",
+		);
+	}
+
+	const upload = await readUploadFromFormData(data);
+	return await uploadCategoryImageFileForAdmin(upload);
+});
+
+/** Importa imagen desde URL remota — tenant-aware. */
+export const uploadCategoryImageFromRemoteUrlForAdminFn = createServerFn({
+	method: "POST",
+})
+	.inputValidator((payload: unknown) => remoteImageSchema.parse(payload))
+	.handler(async ({ data }) => {
+		return await uploadCategoryImageFromRemoteUrlForAdmin(data);
 	});
