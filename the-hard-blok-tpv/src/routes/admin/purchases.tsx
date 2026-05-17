@@ -15,7 +15,10 @@ import {
 	getRecentPurchaseReceiptsFn,
 	getSuppliersFn,
 } from "../../features/purchases/server-fns";
-import type { PurchaseReceiptListItem, Supplier } from "../../features/purchases/types";
+import type {
+	PurchaseReceiptListItem,
+	Supplier,
+} from "../../features/purchases/types";
 
 export const Route = createFileRoute("/admin/purchases")({
 	beforeLoad: async ({ location }) => {
@@ -95,7 +98,9 @@ function AdminPurchasesPage() {
 			await router.invalidate();
 		} catch (error) {
 			const message =
-				error instanceof Error ? error.message : "No se pudo crear el proveedor.";
+				error instanceof Error
+					? error.message
+					: "No se pudo crear el proveedor.";
 			window.alert(message);
 		} finally {
 			setIsSubmittingSupplier(false);
@@ -287,7 +292,10 @@ function AdminPurchasesPage() {
 						</div>
 					) : (
 						receipts.map((receipt: PurchaseReceiptListItem) => (
-							<div key={receipt.id} className="rounded-2xl border px-3 py-2 text-sm">
+							<div
+								key={receipt.id}
+								className="rounded-2xl border px-3 py-2 text-sm"
+							>
 								<p className="font-medium">
 									{receipt.supplier_name} · {receipt.warehouse_name}
 								</p>

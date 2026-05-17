@@ -8,8 +8,8 @@ import {
 	createWarehouse,
 	getInventoryItems,
 	getWarehouseMovements,
-	getWarehouses,
 	getWarehouseStock,
+	getWarehouses,
 	setProductStock,
 } from "./queries.server";
 import { STOCK_MOVEMENT_TYPES } from "./types";
@@ -113,7 +113,9 @@ export const getInventoryItemsFn = createServerFn({ method: "GET" }).handler(
 	},
 );
 
-export const createInventoryMovementDetailedFn = createServerFn({ method: "POST" })
+export const createInventoryMovementDetailedFn = createServerFn({
+	method: "POST",
+})
 	.inputValidator((data: unknown) => createDetailedMovementSchema.parse(data))
 	.handler(async ({ data }) => {
 		await ensureCatalogManagementRole();

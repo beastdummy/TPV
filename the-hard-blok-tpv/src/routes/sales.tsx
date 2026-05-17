@@ -4,7 +4,10 @@ import { useEffect, useState } from "react";
 import { AppShell } from "../components/layout/app-shell";
 import { requireRoleForRoute } from "../features/auth/route-guards";
 import { POS_OPERATION_ROLES } from "../features/auth/types";
-import { getSalesCatalogFn, openCashDrawerFn } from "../features/sales/server-fns";
+import {
+	getSalesCatalogFn,
+	openCashDrawerFn,
+} from "../features/sales/server-fns";
 import { useTicket } from "../features/sales/use-ticket";
 
 export const Route = createFileRoute("/sales")({
@@ -66,7 +69,9 @@ function SalesPage() {
 	}, [activeFamilyId, categories]);
 
 	const activeFamily =
-		categories.find((family) => family.id === activeFamilyId) ?? categories[0] ?? null;
+		categories.find((family) => family.id === activeFamilyId) ??
+		categories[0] ??
+		null;
 
 	const filteredProducts = products.filter(
 		(product) => product.category_id === activeFamilyId,
@@ -76,7 +81,9 @@ function SalesPage() {
 	const tax = subtotal * 0.1;
 	const total = subtotal + tax;
 	const selectedItem =
-		items.find((item) => item.id === selectedItemId) ?? items[items.length - 1] ?? null;
+		items.find((item) => item.id === selectedItemId) ??
+		items[items.length - 1] ??
+		null;
 
 	function getNumericInput() {
 		const parsed = Number.parseFloat(keypadValue);
@@ -145,7 +152,9 @@ function SalesPage() {
 		if (!requireSelectedItem()) return;
 		const discount = Math.min(100, Math.max(0, getNumericInput()));
 		applyDiscountToItem(selectedItem.id, discount);
-		setActionMessage(`Descuento ${discount.toFixed(2)}% en "${selectedItem.name}".`);
+		setActionMessage(
+			`Descuento ${discount.toFixed(2)}% en "${selectedItem.name}".`,
+		);
 		resetKeypad();
 	}
 
@@ -171,7 +180,9 @@ function SalesPage() {
 		try {
 			setIsProcessingDrawer(true);
 			const result = await openCashDrawerFn();
-			setActionMessage(`${result.message} ${new Date(result.openedAt).toLocaleTimeString()}`);
+			setActionMessage(
+				`${result.message} ${new Date(result.openedAt).toLocaleTimeString()}`,
+			);
 		} catch {
 			setActionMessage("No se pudo abrir el cajón.");
 		} finally {
@@ -586,7 +597,9 @@ function SalesPage() {
 				<div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4">
 					<div className="w-full max-w-md rounded-2xl border bg-card p-4 shadow-xl">
 						<h3 className="text-base font-semibold">
-							{activeModal === "discount" ? "Aplicar descuento" : "Dividir cuenta"}
+							{activeModal === "discount"
+								? "Aplicar descuento"
+								: "Dividir cuenta"}
 						</h3>
 						<p className="mt-1 text-sm text-muted-foreground">
 							{activeModal === "discount"

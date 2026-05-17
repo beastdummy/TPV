@@ -12,7 +12,10 @@ import {
 	getInventoryItemsFn,
 	getWarehousesFn,
 } from "../../features/inventory/server-fns";
-import { STOCK_MOVEMENT_TYPES, type StockMovementType } from "../../features/inventory/types";
+import {
+	STOCK_MOVEMENT_TYPES,
+	type StockMovementType,
+} from "../../features/inventory/types";
 
 export const Route = createFileRoute("/admin/inventory")({
 	beforeLoad: async ({ location }) => {
@@ -33,7 +36,9 @@ function AdminInventoryPage() {
 	const router = useRouter();
 	const { warehouses, products, inventoryRows } = Route.useLoaderData();
 
-	const [warehouseId, setWarehouseId] = useState<string>(warehouses[0]?.id ?? "");
+	const [warehouseId, setWarehouseId] = useState<string>(
+		warehouses[0]?.id ?? "",
+	);
 	const [productId, setProductId] = useState<string>(products[0]?.id ?? "");
 	const [movementType, setMovementType] = useState<StockMovementType>("in");
 	const [quantity, setQuantity] = useState("1");
@@ -51,9 +56,11 @@ function AdminInventoryPage() {
 
 	const filteredInventoryRows = useMemo(() => {
 		const threshold = Number.parseFloat(lowStockThreshold);
-		const validThreshold = Number.isFinite(threshold) && threshold >= 0 ? threshold : 0;
+		const validThreshold =
+			Number.isFinite(threshold) && threshold >= 0 ? threshold : 0;
 		const withinDays = Number.parseInt(expiryWithinDays, 10);
-		const validWithinDays = Number.isFinite(withinDays) && withinDays >= 0 ? withinDays : 0;
+		const validWithinDays =
+			Number.isFinite(withinDays) && withinDays >= 0 ? withinDays : 0;
 		const today = new Date();
 		const limitDate = new Date(today);
 		limitDate.setDate(today.getDate() + validWithinDays);
@@ -155,9 +162,7 @@ function AdminInventoryPage() {
 
 		const csv = [headers, ...rows]
 			.map((line) =>
-				line
-					.map((cell) => `"${String(cell).replaceAll('"', '""')}"`)
-					.join(","),
+				line.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","),
 			)
 			.join("\n");
 
@@ -189,7 +194,10 @@ function AdminInventoryPage() {
 
 	function sendInventoryEmailSummary() {
 		const totalRows = filteredInventoryRows.length;
-		const totalStock = filteredInventoryRows.reduce((acc, row) => acc + row.qty_on_hand, 0);
+		const totalStock = filteredInventoryRows.reduce(
+			(acc, row) => acc + row.qty_on_hand,
+			0,
+		);
 		const body = [
 			"Resumen de inventario",
 			"",
@@ -250,8 +258,12 @@ function AdminInventoryPage() {
 			}
 		>
 			<section className="rounded-3xl border bg-background p-5">
-				<h2 className="text-lg font-semibold">Registrar movimiento detallado</h2>
-				{feedback ? <p className="mt-2 text-xs text-emerald-700">{feedback}</p> : null}
+				<h2 className="text-lg font-semibold">
+					Registrar movimiento detallado
+				</h2>
+				{feedback ? (
+					<p className="mt-2 text-xs text-emerald-700">{feedback}</p>
+				) : null}
 				<div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
 					<select
 						value={warehouseId}
@@ -288,7 +300,11 @@ function AdminInventoryPage() {
 					>
 						{STOCK_MOVEMENT_TYPES.map((type) => (
 							<option key={type} value={type}>
-								{type === "in" ? "Entrada" : type === "out" ? "Salida" : "Ajuste"}
+								{type === "in"
+									? "Entrada"
+									: type === "out"
+										? "Salida"
+										: "Ajuste"}
 							</option>
 						))}
 					</select>
@@ -412,8 +428,12 @@ function AdminInventoryPage() {
 							className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_120px] gap-3 px-4 py-3 text-sm"
 						>
 							<span className="truncate font-medium">{row.product_name}</span>
-							<span className="truncate text-muted-foreground">{row.category_name}</span>
-							<span className="truncate text-muted-foreground">{row.warehouse_name}</span>
+							<span className="truncate text-muted-foreground">
+								{row.category_name}
+							</span>
+							<span className="truncate text-muted-foreground">
+								{row.warehouse_name}
+							</span>
 							<span className="truncate">{row.lot_code || "-"}</span>
 							<span className="truncate">{row.serial_number || "-"}</span>
 							<span className="truncate">{row.expiry_date ?? "-"}</span>

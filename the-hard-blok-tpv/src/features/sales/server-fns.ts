@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-
-import { ensurePosOperationRole } from "../auth/auth.rpc";
 import { db } from "../../lib/db.server";
+import { ensurePosOperationRole } from "../auth/auth.rpc";
 
 type OpenDrawerResult = {
 	ok: true;

@@ -1,4 +1,4 @@
-import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { ArrowRight, PlusCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -136,8 +136,8 @@ function AdminWarehousesPage() {
 					<div className="mt-6 rounded-2xl border bg-card p-4">
 						<h3 className="text-sm font-semibold">Operativa de stock</h3>
 						<p className="mt-2 text-sm text-muted-foreground">
-							La gestión de stock, lotes, series y caducidad está centralizada en
-							la página de inventario.
+							La gestión de stock, lotes, series y caducidad está centralizada
+							en la página de inventario.
 						</p>
 						<Link
 							to="/admin/inventory"

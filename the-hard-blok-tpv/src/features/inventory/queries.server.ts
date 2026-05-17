@@ -1,5 +1,5 @@
-import { db } from "../../lib/db.server";
 import type { PoolClient } from "pg";
+import { db } from "../../lib/db.server";
 
 import type {
 	InventoryItemRow,
@@ -286,13 +286,7 @@ export async function createInventoryMovementDetailed(input: {
         )
       LIMIT 1
     `,
-			[
-				input.warehouse_id,
-				input.product_id,
-				lotCode,
-				serialNumber,
-				expiryDate,
-			],
+			[input.warehouse_id, input.product_id, lotCode, serialNumber, expiryDate],
 		);
 
 		const currentQty = existingResult.rows[0]?.qty_on_hand ?? 0;
@@ -374,7 +368,9 @@ export async function createInventoryMovementDetailed(input: {
 			],
 		);
 
-		const previousWarehouseStockResult = await client.query<{ quantity: number }>(
+		const previousWarehouseStockResult = await client.query<{
+			quantity: number;
+		}>(
 			`
       SELECT COALESCE(quantity, 0)::float8 AS quantity
       FROM product_stock

@@ -1,5 +1,11 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { LayoutDashboard, LogOut, Receipt, Settings, ShieldCheck } from "lucide-react";
+import {
+	LayoutDashboard,
+	LogOut,
+	Receipt,
+	Settings,
+	ShieldCheck,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
 import { authClient } from "../../lib/auth-client";
