@@ -19,6 +19,11 @@ export {
 } from "./errors";
 export { executeFinalizeSaleCommand } from "./finalize-sale-command.server";
 export {
+	insertInternalSalePaymentSnapshot,
+	mapSalePaymentToSnapshot,
+	resolveInternalPaymentStatus,
+} from "./finalize-sale-payment.server";
+export {
 	aggregateSaleLinesByProduct,
 	decrementStockForSale,
 	SALE_STOCK_MOVEMENT_TYPE,
@@ -40,23 +45,30 @@ export type {
 	CashSessionRow,
 	SaleIdempotencyKeyRow,
 	SaleItemRow,
+	SalePaymentRow,
 	SaleRow,
 } from "./schema-types";
 export type {
 	CashSessionStatus,
 	ClientTicketPhase,
 	FinalizeSaleInput,
+	FinalizeSalePaymentSnapshot,
 	FinalizeSaleResult,
 	SaleIdempotentOperation,
 	SaleLineInput,
 	SalePaymentMethod,
+	SalePaymentProvider,
+	SalePaymentStatus,
 	SaleStatus,
 	SaleTransactionContext,
 } from "./types";
 export {
 	CASH_SESSION_STATUSES,
 	CLIENT_TICKET_PHASES,
+	DEFAULT_SALE_PAYMENT_CURRENCY,
 	SALE_IDEMPOTENT_OPERATIONS,
 	SALE_PAYMENT_METHODS,
+	SALE_PAYMENT_PROVIDERS,
+	SALE_PAYMENT_STATUSES,
 	SALE_STATUSES,
 } from "./types";

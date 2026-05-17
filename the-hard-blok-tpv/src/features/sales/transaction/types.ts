@@ -18,6 +18,26 @@ export const SALE_PAYMENT_METHODS = ["cash", "card", "mixed"] as const;
 
 export type SalePaymentMethod = (typeof SALE_PAYMENT_METHODS)[number];
 
+/** Estados de `sale_payments.status` (sin proveedor externo aún). */
+export const SALE_PAYMENT_STATUSES = [
+	"pending",
+	"authorized",
+	"completed",
+	"failed",
+	"refunded",
+	"partially_refunded",
+] as const;
+
+export type SalePaymentStatus = (typeof SALE_PAYMENT_STATUSES)[number];
+
+/** Proveedores de pago persistidos (solo interno en esta fase). */
+export const SALE_PAYMENT_PROVIDERS = ["internal"] as const;
+
+export type SalePaymentProvider = (typeof SALE_PAYMENT_PROVIDERS)[number];
+
+/** Moneda por defecto para snapshots internos (alineado con tenancy). */
+export const DEFAULT_SALE_PAYMENT_CURRENCY = "EUR" as const;
+
 /** Sesión de caja. */
 export const CASH_SESSION_STATUSES = [
 	"open",
@@ -65,6 +85,16 @@ export type FinalizeSaleInput = {
 	notes?: string;
 };
 
+/** Snapshot de pago devuelto tras finalize (interno, sin pasarela). */
+export type FinalizeSalePaymentSnapshot = {
+	payment_id: string;
+	payment_method: SalePaymentMethod;
+	amount: number;
+	currency: string;
+	status: SalePaymentStatus;
+	provider: SalePaymentProvider;
+};
+
 /** Respuesta prevista tras finalize exitoso. */
 export type FinalizeSaleResult = {
 	sale_id: string;
@@ -72,6 +102,7 @@ export type FinalizeSaleResult = {
 	status: Extract<SaleStatus, "completed">;
 	total: number;
 	idempotency_key: string;
+	payment: FinalizeSalePaymentSnapshot;
 };
 
 /** Contexto de tenant resuelto antes de cualquier comando de escritura. */

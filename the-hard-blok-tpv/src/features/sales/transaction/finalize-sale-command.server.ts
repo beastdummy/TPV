@@ -2,13 +2,21 @@ import type { PoolClient } from "pg";
 
 import { db } from "../../../lib/db.server";
 import { SALES_TX_ERROR_CODES, SalesTransactionError } from "./errors";
+import {
+	insertInternalSalePaymentSnapshot,
+	mapSalePaymentToSnapshot,
+} from "./finalize-sale-payment.server";
 import { decrementStockForSale } from "./finalize-sale-stock.server";
 import {
 	type ComputedSaleLine,
 	computeSaleLine,
 	computeSaleTotals,
 } from "./finalize-sale-totals";
-import type { FinalizeSaleResult, SalePaymentMethod } from "./types";
+import type {
+	FinalizeSalePaymentSnapshot,
+	FinalizeSaleResult,
+	SalePaymentMethod,
+} from "./types";
 
 export type ExecuteFinalizeSaleCommandInput = {
 	business_id: string;
@@ -38,6 +46,7 @@ type SaleHeaderRow = {
 function mapFinalizeResult(
 	row: SaleHeaderRow,
 	idempotencyKey: string,
+	payment: FinalizeSalePaymentSnapshot,
 ): FinalizeSaleResult {
 	return {
 		sale_id: row.id,
@@ -45,6 +54,7 @@ function mapFinalizeResult(
 		status: "completed",
 		total: Number(row.total),
 		idempotency_key: idempotencyKey,
+		payment,
 	};
 }
 
@@ -57,11 +67,16 @@ function parseIdempotencyPayload(
 	}
 
 	const data = payload as Partial<FinalizeSaleResult>;
+	const payment = data.payment;
 	if (
 		typeof data.sale_id !== "string" ||
 		typeof data.receipt_number !== "number" ||
 		data.status !== "completed" ||
-		typeof data.total !== "number"
+		typeof data.total !== "number" ||
+		!payment ||
+		typeof payment !== "object" ||
+		typeof payment.payment_id !== "string" ||
+		typeof payment.amount !== "number"
 	) {
 		return null;
 	}
@@ -72,6 +87,7 @@ function parseIdempotencyPayload(
 		status: "completed",
 		total: data.total,
 		idempotency_key: idempotencyKey,
+		payment: payment as FinalizeSalePaymentSnapshot,
 	};
 }
 
@@ -364,9 +380,20 @@ export async function executeFinalizeSaleCommand(
 			lines,
 		});
 
+		const paymentRow = await insertInternalSalePaymentSnapshot(client, {
+			sale_id: sale.id,
+			business_id: input.business_id,
+			payment_method: input.payment_method,
+			amount: totals.total,
+		});
+
 		await completeSale(client, sale.id);
 
-		const result = mapFinalizeResult(sale, input.idempotency_key);
+		const result = mapFinalizeResult(
+			sale,
+			input.idempotency_key,
+			mapSalePaymentToSnapshot(paymentRow),
+		);
 
 		await storeIdempotencyResult(
 			client,

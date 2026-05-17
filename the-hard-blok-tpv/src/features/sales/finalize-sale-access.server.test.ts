@@ -75,6 +75,14 @@ const saleResult = {
 	status: "completed" as const,
 	total: 5,
 	idempotency_key: "sale:v1:biz-1:finalize_sale:req-1",
+	payment: {
+		payment_id: "pay-1",
+		payment_method: "cash" as const,
+		amount: 5,
+		currency: "EUR",
+		status: "completed" as const,
+		provider: "internal" as const,
+	},
 };
 
 describe("finalize-sale-access.server (Fase C1)", () => {

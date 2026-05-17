@@ -18,6 +18,17 @@ const sessionId = "sess-1";
 const warehouseId = "principal";
 const productId = "00000000-0000-4000-8000-000000000002";
 
+function buildPaymentSnapshot(overrides: { amount?: number } = {}) {
+	return {
+		payment_id: "pay-new",
+		payment_method: "cash" as const,
+		amount: overrides.amount ?? 4,
+		currency: "EUR",
+		status: "completed" as const,
+		provider: "internal" as const,
+	};
+}
+
 const baseCommandInput = {
 	business_id: businessId,
 	user_id: userId,
@@ -150,6 +161,26 @@ function createMockClient(options?: { initialStock?: Record<string, number> }) {
 				return { rows: [] };
 			}
 
+			if (normalized.includes("INSERT INTO sale_payments")) {
+				return {
+					rows: [
+						{
+							id: "pay-new",
+							sale_id: params?.[0],
+							business_id: params?.[1],
+							payment_method: params?.[2],
+							amount: params?.[3],
+							currency: params?.[4],
+							status: params?.[5],
+							provider: params?.[6],
+							provider_reference: params?.[7],
+							created_at: "2026-01-01T10:00:00Z",
+							processed_at: params?.[8],
+						},
+					],
+				};
+			}
+
 			if (
 				normalized.includes("UPDATE sales") &&
 				normalized.includes("completed")
@@ -188,6 +219,7 @@ describe("finalize-sale-command.server", () => {
 			status: "completed",
 			total: 4,
 			idempotency_key: baseCommandInput.idempotency_key,
+			payment: buildPaymentSnapshot(),
 		});
 		expect(client.getCalls()).toContain("BEGIN");
 		expect(client.getCalls()).toContain("COMMIT");
@@ -223,6 +255,9 @@ describe("finalize-sale-command.server", () => {
 		const stockIndex = client
 			.getCalls()
 			.findIndex((sql) => sql.includes("FROM product_stock"));
+		const paymentIndex = client
+			.getCalls()
+			.findIndex((sql) => sql.includes("INSERT INTO sale_payments"));
 		const completeIndex = client
 			.getCalls()
 			.findIndex(
@@ -230,7 +265,28 @@ describe("finalize-sale-command.server", () => {
 			);
 		expect(itemIndex).toBeGreaterThanOrEqual(0);
 		expect(stockIndex).toBeGreaterThan(itemIndex);
-		expect(completeIndex).toBeGreaterThan(stockIndex);
+		expect(paymentIndex).toBeGreaterThan(stockIndex);
+		expect(completeIndex).toBeGreaterThan(paymentIndex);
+	});
+
+	it("persists internal cash payment snapshot before completing sale", async () => {
+		const client = createMockClient();
+		mocks.connect.mockResolvedValue(client);
+
+		const result = await executeFinalizeSaleCommand(baseCommandInput);
+
+		expect(result.payment).toMatchObject({
+			payment_method: "cash",
+			status: "completed",
+			provider: "internal",
+			amount: 4,
+			currency: "EUR",
+		});
+		expect(
+			client
+				.getCalls()
+				.filter((sql) => sql.includes("INSERT INTO sale_payments")),
+		).toHaveLength(1);
 	});
 
 	it("returns cached result for completed idempotency key without stock writes", async () => {
@@ -241,6 +297,10 @@ describe("finalize-sale-command.server", () => {
 			status: "completed" as const,
 			total: 9,
 			idempotency_key: baseCommandInput.idempotency_key,
+			payment: {
+				...buildPaymentSnapshot({ amount: 9 }),
+				payment_id: "pay-cached",
+			},
 		};
 
 		client.query.mockImplementation(async (sql: string) => {
@@ -283,6 +343,11 @@ describe("finalize-sale-command.server", () => {
 		).toBe(false);
 		expect(
 			client.getCalls().some((sql) => sql.includes("FROM product_stock")),
+		).toBe(false);
+		expect(
+			client
+				.getCalls()
+				.some((sql) => sql.includes("INSERT INTO sale_payments")),
 		).toBe(false);
 	});
 
@@ -433,6 +498,7 @@ describe("finalize-sale-command.server", () => {
 			status: "completed" as const,
 			total: 4,
 			idempotency_key: baseCommandInput.idempotency_key,
+			payment: buildPaymentSnapshot(),
 		};
 
 		client.query.mockImplementation(async (sql: string) => {

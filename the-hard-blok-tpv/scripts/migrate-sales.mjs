@@ -32,6 +32,7 @@ try {
 	for (const file of [
 		"002_sales_transaction_foundations.sql",
 		"003_sales_cash_session_closing_amount.sql",
+		"004_sale_payments_foundations.sql",
 	]) {
 		const ddlPath = join(root, "db/migrations", file);
 		await client.query(readFileSync(ddlPath, "utf8"));
@@ -46,7 +47,13 @@ try {
       AND table_name = ANY($1::text[])
     ORDER BY table_name
     `,
-		[["cash_sessions", "sales", "sale_items", "sale_idempotency_keys"]],
+		[
+			"cash_sessions",
+			"sales",
+			"sale_items",
+			"sale_idempotency_keys",
+			"sale_payments",
+		],
 	);
 
 	console.log(

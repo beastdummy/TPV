@@ -1,4 +1,10 @@
-import type { CashSessionStatus, SalePaymentMethod, SaleStatus } from "./types";
+import type {
+	CashSessionStatus,
+	SalePaymentMethod,
+	SalePaymentProvider,
+	SalePaymentStatus,
+	SaleStatus,
+} from "./types";
 
 /** Fila `cash_sessions` (Fase A). */
 export type CashSessionRow = {
@@ -50,6 +56,21 @@ export type SaleItemRow = {
 	line_total: number;
 	sort_order: number;
 	created_at: string;
+};
+
+/** Fila `sale_payments` (foundations internas). */
+export type SalePaymentRow = {
+	id: string;
+	sale_id: string;
+	business_id: string;
+	payment_method: SalePaymentMethod;
+	amount: number;
+	currency: string;
+	status: SalePaymentStatus;
+	provider: SalePaymentProvider;
+	provider_reference: string | null;
+	created_at: string;
+	processed_at: string | null;
 };
 
 /** Fila `sale_idempotency_keys` (Fase A). */

@@ -45,6 +45,14 @@ describe("sales/transaction scaffolding", () => {
 			status: "completed",
 			total: 10,
 			idempotency_key: "k",
+			payment: {
+				payment_id: "pay-1",
+				payment_method: "cash",
+				amount: 10,
+				currency: "EUR",
+				status: "completed",
+				provider: "internal",
+			},
 		});
 
 		await expect(
