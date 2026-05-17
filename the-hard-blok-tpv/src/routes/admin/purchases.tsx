@@ -3,14 +3,14 @@ import { PlusCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { AdminShell } from "../../components/layout/admin-shell";
-import { getPurchasesPageForAdminFn } from "../../features/admin/purchases.server-fns";
+import {
+	createPurchaseReceiptForAdminFn,
+	createSupplierForAdminFn,
+	getPurchasesPageForAdminFn,
+} from "../../features/admin/purchases.server-fns";
 import type { Product } from "../../features/admin/types";
 import { requireCatalogManagementTenantForRoute } from "../../features/auth/route-guards";
 import type { Warehouse } from "../../features/inventory/types";
-import {
-	createPurchaseReceiptFn,
-	createSupplierFn,
-} from "../../features/purchases/server-fns";
 import type {
 	PurchaseReceiptListItem,
 	Supplier,
@@ -69,7 +69,7 @@ function AdminPurchasesPage() {
 
 		try {
 			setIsSubmittingSupplier(true);
-			const result = await createSupplierFn({
+			const result = await createSupplierForAdminFn({
 				data: {
 					name,
 					tax_id: supplierTaxId.trim(),
@@ -115,7 +115,7 @@ function AdminPurchasesPage() {
 
 		try {
 			setIsSubmittingReceipt(true);
-			await createPurchaseReceiptFn({
+			await createPurchaseReceiptForAdminFn({
 				data: {
 					supplier_id: selectedSupplierId,
 					warehouse_id: selectedWarehouseId,
