@@ -1,7 +1,11 @@
 import { redirect } from "@tanstack/react-router";
 
 import { getAppUserFn } from "./auth.rpc";
-import { CATALOG_MANAGEMENT_ROLES, type Role } from "./types";
+import {
+	CATALOG_MANAGEMENT_ROLES,
+	POS_OPERATION_ROLES,
+	type Role,
+} from "./types";
 
 export async function requireAuthForRoute(redirectTo: string) {
 	const user = await getAppUserFn();
@@ -55,6 +59,21 @@ export async function requireCatalogManagementTenantForRoute(
 
 	try {
 		return await ensureCatalogManagementTenantFn();
+	} catch (error) {
+		redirectForTenantAuthError(error, redirectTo);
+	}
+}
+
+/**
+ * Patrón híbrido para TPV (/sales): legacy users.role + business_members.
+ */
+export async function requirePosOperationTenantForRoute(redirectTo: string) {
+	await requireRoleForRoute(POS_OPERATION_ROLES, redirectTo);
+
+	const { ensurePosOperationTenantFn } = await import("./auth.rpc");
+
+	try {
+		return await ensurePosOperationTenantFn();
 	} catch (error) {
 		redirectForTenantAuthError(error, redirectTo);
 	}

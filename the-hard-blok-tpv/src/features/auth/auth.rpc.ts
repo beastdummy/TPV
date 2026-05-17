@@ -73,3 +73,14 @@ export const ensureCatalogManagementTenantFn = createServerFn({
 export async function ensurePosOperationRole() {
 	return await ensureRoleIn(POS_OPERATION_ROLES);
 }
+
+/**
+ * Tenant-aware POS guard (business_members + legacy fallback).
+ * Usar desde rutas vía requirePosOperationTenantForRoute (RPC, client-safe).
+ */
+export const ensurePosOperationTenantFn = createServerFn({
+	method: "GET",
+}).handler(async () => {
+	const { requireBusinessRole } = await import("./tenant-guards.server");
+	return await requireBusinessRole(POS_OPERATION_ROLES);
+});

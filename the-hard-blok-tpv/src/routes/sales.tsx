@@ -2,19 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "../components/layout/app-shell";
-import { requireRoleForRoute } from "../features/auth/route-guards";
-import { POS_OPERATION_ROLES } from "../features/auth/types";
-import {
-	getSalesCatalogFn,
-	openCashDrawerFn,
-} from "../features/sales/server-fns";
+import { requirePosOperationTenantForRoute } from "../features/auth/route-guards";
+import { getSalesCatalogForPosFn } from "../features/sales/sales.server-fns";
+import { openCashDrawerFn } from "../features/sales/server-fns";
 import { useTicket } from "../features/sales/use-ticket";
 
 export const Route = createFileRoute("/sales")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(POS_OPERATION_ROLES, location.href);
+		await requirePosOperationTenantForRoute(location.href);
 	},
-	loader: async () => await getSalesCatalogFn(),
+	loader: async () => await getSalesCatalogForPosFn(),
 	component: SalesPage,
 });
 
