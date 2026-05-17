@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import { finalizeSale } from "./finalize-sale-access.server";
 import { SALE_PAYMENT_METHODS } from "./transaction/types";
 
 const saleLineSchema = z.object({
@@ -27,5 +26,6 @@ const finalizeSaleSchema = z.object({
 export const finalizeSaleForPosFn = createServerFn({ method: "POST" })
 	.inputValidator((data: unknown) => finalizeSaleSchema.parse(data))
 	.handler(async ({ data }) => {
+		const { finalizeSale } = await import("./finalize-sale-access.server");
 		return await finalizeSale(data);
 	});

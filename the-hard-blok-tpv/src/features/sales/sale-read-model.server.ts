@@ -1,58 +1,26 @@
 import { db } from "../../lib/db.server";
-import type { StockMovementType } from "../inventory/types";
 import { getCashSessionById } from "./cash-session-queries.server";
 import { listSalePaymentsBySale } from "./sale-payment-queries.server";
+import type {
+	ListRecentSalesForPosInput,
+	SaleReceiptReadModel,
+	SaleReceiptSummary,
+	SaleStockMovementReadModel,
+} from "./sale-read-model.types";
 import { resolvePosBusinessContext } from "./sales-access.server";
 import {
 	SALES_TX_ERROR_CODES,
 	SalesTransactionError,
 } from "./transaction/errors";
 import { buildSaleStockMovementReason } from "./transaction/finalize-sale-stock.server";
-import type {
-	CashSessionRow,
-	SaleItemRow,
-	SalePaymentRow,
-	SaleRow,
-} from "./transaction/schema-types";
-import type { SalePaymentMethod, SaleStatus } from "./transaction/types";
+import type { SaleItemRow, SaleRow } from "./transaction/schema-types";
 
-export type SaleStockMovementReadModel = {
-	id: string;
-	product_id: string;
-	product_name: string;
-	warehouse_id: string;
-	movement_type: StockMovementType;
-	quantity: number;
-	previous_quantity: number;
-	new_quantity: number;
-	reason: string;
-	performed_by_user_id: string;
-	created_at: string;
-};
-
-export type SaleReceiptReadModel = {
-	sale: SaleRow;
-	items: SaleItemRow[];
-	payments: SalePaymentRow[];
-	cash_session: CashSessionRow;
-	stock_movements: SaleStockMovementReadModel[];
-};
-
-export type SaleReceiptSummary = {
-	id: string;
-	receipt_number: number;
-	status: SaleStatus;
-	total: number;
-	payment_method: SalePaymentMethod | null;
-	terminal_id: string;
-	created_at: string;
-	created_by_user_id: string;
-};
-
-export type ListRecentSalesForPosInput = {
-	limit?: number;
-	terminal_id?: string;
-};
+export type {
+	ListRecentSalesForPosInput,
+	SaleReceiptReadModel,
+	SaleReceiptSummary,
+	SaleStockMovementReadModel,
+} from "./sale-read-model.types";
 
 const DEFAULT_RECENT_SALES_LIMIT = 50;
 const MAX_RECENT_SALES_LIMIT = 100;

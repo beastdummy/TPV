@@ -3,8 +3,25 @@ import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "../components/layout/app-shell";
 import { requirePosOperationTenantForRoute } from "../features/auth/route-guards";
+import {
+	buildFinalizeSaleLinesFromTicket,
+	getPosSaleErrorMessage,
+	POS_DEFAULT_TERMINAL_ID,
+	POS_DEFAULT_WAREHOUSE_ID,
+} from "../features/sales/build-pos-sale-payload";
+import { getActiveCashSessionForPosFn } from "../features/sales/cash-session.server-fns";
+import { finalizeSaleForPosFn } from "../features/sales/finalize-sale.server-fns";
+import {
+	getSaleReceiptByIdForPosFn,
+	listRecentSalesForPosFn,
+} from "../features/sales/sale-read-model.server-fns";
+import type {
+	SaleReceiptReadModel,
+	SaleReceiptSummary,
+} from "../features/sales/sale-read-model.types";
 import { getSalesCatalogForPosFn } from "../features/sales/sales.server-fns";
 import { openCashDrawerFn } from "../features/sales/server-fns";
+import type { CashSessionRow } from "../features/sales/transaction/schema-types";
 import { useTicket } from "../features/sales/use-ticket";
 
 export const Route = createFileRoute("/sales")({
@@ -44,9 +61,35 @@ function SalesPage() {
 	const [keypadValue, setKeypadValue] = useState("0");
 	const [actionMessage, setActionMessage] = useState<string | null>(null);
 	const [isProcessingDrawer, setIsProcessingDrawer] = useState(false);
+	const [isFinalizingSale, setIsFinalizingSale] = useState(false);
+	const [cashSession, setCashSession] = useState<CashSessionRow | null>(null);
+	const [recentSales, setRecentSales] = useState<SaleReceiptSummary[]>([]);
+	const [completedReceipt, setCompletedReceipt] =
+		useState<SaleReceiptReadModel | null>(null);
 	const [activeModal, setActiveModal] = useState<"discount" | "split" | null>(
 		null,
 	);
+
+	const refreshPosContext = useCallback(async () => {
+		try {
+			const session = await getActiveCashSessionForPosFn({
+				data: { terminal_id: POS_DEFAULT_TERMINAL_ID },
+			});
+			setCashSession(session);
+
+			const recent = await listRecentSalesForPosFn({
+				data: { limit: 8, terminal_id: POS_DEFAULT_TERMINAL_ID },
+			});
+			setRecentSales(recent);
+		} catch {
+			setCashSession(null);
+			setRecentSales([]);
+		}
+	}, []);
+
+	useEffect(() => {
+		void refreshPosContext();
+	}, [refreshPosContext]);
 
 	useEffect(() => {
 		if (!categories.length) {
@@ -206,6 +249,65 @@ function SalesPage() {
 		}
 	}
 
+	async function handleFinalizeSale() {
+		if (items.length === 0) {
+			setActionMessage("Añade productos antes de cobrar.");
+			return;
+		}
+
+		if (!cashSession) {
+			setActionMessage(
+				"No hay sesión de caja abierta. Abre caja antes de cobrar.",
+			);
+			return;
+		}
+
+		try {
+			setIsFinalizingSale(true);
+			setActionMessage(null);
+
+			const finalizeResult = await finalizeSaleForPosFn({
+				data: {
+					client_request_id: crypto.randomUUID(),
+					cash_session_id: cashSession.id,
+					terminal_id: POS_DEFAULT_TERMINAL_ID,
+					warehouse_id: POS_DEFAULT_WAREHOUSE_ID,
+					payment_method: "cash",
+					lines: buildFinalizeSaleLinesFromTicket(items),
+				},
+			});
+
+			const receipt = await getSaleReceiptByIdForPosFn({
+				data: { sale_id: finalizeResult.sale_id },
+			});
+
+			setCompletedReceipt(receipt);
+			clearTicket();
+			setSelectedItemId(null);
+			resetKeypad();
+			await refreshPosContext();
+		} catch (error) {
+			setActionMessage(getPosSaleErrorMessage(error));
+		} finally {
+			setIsFinalizingSale(false);
+		}
+	}
+
+	async function handleViewRecentReceipt(saleId: string) {
+		try {
+			const receipt = await getSaleReceiptByIdForPosFn({
+				data: { sale_id: saleId },
+			});
+			setCompletedReceipt(receipt);
+		} catch (error) {
+			setActionMessage(getPosSaleErrorMessage(error));
+		}
+	}
+
+	function closeReceiptModal() {
+		setCompletedReceipt(null);
+	}
+
 	useEffect(() => {
 		function onKeyDown(event: KeyboardEvent) {
 			if (
@@ -273,11 +375,28 @@ function SalesPage() {
 								Venta actual
 							</p>
 							<h2 className="mt-1 text-xs font-semibold">
-								Mesa 4 · Ticket #0001
+								{POS_DEFAULT_TERMINAL_ID}
+								{cashSession ? " · Caja abierta" : " · Sin sesión de caja"}
 							</h2>
 							<p className="mt-1 text-[9px] text-muted-foreground">
-								Sala interior
+								{recentSales[0]
+									? `Último ticket #${recentSales[0].receipt_number}`
+									: "Nueva venta"}
 							</p>
+							{recentSales.length > 0 ? (
+								<div className="mt-2 flex flex-wrap gap-1">
+									{recentSales.map((sale) => (
+										<button
+											key={sale.id}
+											type="button"
+											onClick={() => handleViewRecentReceipt(sale.id)}
+											className="rounded-md border bg-background px-1.5 py-0.5 text-[9px] tabular-nums transition hover:bg-muted"
+										>
+											#{sale.receipt_number}
+										</button>
+									))}
+								</div>
+							) : null}
 						</div>
 
 						<div className="grid grid-cols-[minmax(0,1fr)_48px_84px] items-center gap-2 border-b border-dashed pb-2 text-[9px] uppercase tracking-wide text-muted-foreground">
@@ -329,6 +448,14 @@ function SalesPage() {
 								<span>{total.toFixed(2)} €</span>
 							</div>
 						</div>
+						<button
+							type="button"
+							disabled={isFinalizingSale || items.length === 0 || !cashSession}
+							onClick={() => void handleFinalizeSale()}
+							className="mt-2 w-full rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-800 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
+						>
+							{isFinalizingSale ? "Cobrando..." : "Cobrar · Efectivo"}
+						</button>
 						<div className="mt-2 flex items-center justify-between text-[10px] text-muted-foreground">
 							<span className="truncate">
 								Seleccionado: {selectedItem ? selectedItem.name : "ninguno"}
@@ -661,6 +788,63 @@ function SalesPage() {
 								Confirmar
 							</button>
 						</div>
+					</div>
+				</div>
+			) : null}
+
+			{completedReceipt ? (
+				<div className="fixed inset-0 z-50 grid place-items-center bg-black/45 p-4">
+					<div className="w-full max-w-lg rounded-2xl border bg-card p-4 shadow-xl">
+						<div className="border-b border-dashed pb-3">
+							<p className="text-[10px] uppercase tracking-[0.2em] text-emerald-700">
+								Venta completada
+							</p>
+							<h3 className="mt-1 text-lg font-semibold tabular-nums">
+								Ticket #{completedReceipt.sale.receipt_number}
+							</h3>
+							<p className="mt-1 text-xs text-muted-foreground">
+								{new Date(completedReceipt.sale.created_at).toLocaleString()}
+							</p>
+						</div>
+
+						<div className="mt-3 max-h-52 space-y-1 overflow-y-auto">
+							{completedReceipt.items.map((line) => (
+								<div
+									key={line.id}
+									className="flex items-center justify-between gap-2 text-sm"
+								>
+									<span className="truncate">
+										{line.product_name} × {line.quantity}
+									</span>
+									<span className="shrink-0 tabular-nums font-medium">
+										{line.line_total.toFixed(2)} €
+									</span>
+								</div>
+							))}
+						</div>
+
+						<div className="mt-3 rounded-xl border border-dashed p-3 text-sm">
+							<div className="flex items-center justify-between">
+								<span className="text-muted-foreground">Total</span>
+								<span className="text-base font-bold tabular-nums">
+									{completedReceipt.sale.total.toFixed(2)} €
+								</span>
+							</div>
+							<div className="mt-2 flex items-center justify-between text-xs">
+								<span className="text-muted-foreground">Pago</span>
+								<span className="font-medium uppercase">
+									{completedReceipt.payments[0]?.status ?? "—"}
+								</span>
+							</div>
+						</div>
+
+						<button
+							type="button"
+							onClick={closeReceiptModal}
+							className="mt-4 w-full rounded-xl border border-primary bg-primary px-3 py-2.5 text-sm font-semibold text-primary-foreground transition hover:opacity-90"
+						>
+							Nuevo ticket
+						</button>
 					</div>
 				</div>
 			) : null}

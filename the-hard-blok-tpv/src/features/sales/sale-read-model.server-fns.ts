@@ -1,12 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import {
-	getSaleReceiptByIdForPos,
-	getSaleReceiptByReceiptNumberForPos,
-	listRecentSalesForPos,
-} from "./sale-read-model.server";
-
 export const saleReceiptByIdSchema = z.object({
 	sale_id: z.string().trim().uuid(),
 });
@@ -29,16 +23,21 @@ export type ListRecentSalesInput = z.infer<typeof listRecentSalesSchema>;
 export async function handleGetSaleReceiptByIdForPos(
 	input: SaleReceiptByIdInput,
 ) {
+	const { getSaleReceiptByIdForPos } = await import("./sale-read-model.server");
 	return await getSaleReceiptByIdForPos(input.sale_id);
 }
 
 export async function handleGetSaleReceiptByReceiptNumberForPos(
 	input: SaleReceiptByReceiptNumberInput,
 ) {
+	const { getSaleReceiptByReceiptNumberForPos } = await import(
+		"./sale-read-model.server"
+	);
 	return await getSaleReceiptByReceiptNumberForPos(input.receipt_number);
 }
 
 export async function handleListRecentSalesForPos(input: ListRecentSalesInput) {
+	const { listRecentSalesForPos } = await import("./sale-read-model.server");
 	return await listRecentSalesForPos(input);
 }
 

@@ -1,13 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
-import {
-	closeCashSessionForPos,
-	getActiveCashSessionForPos,
-	openCashSessionForPos,
-	suspendCashSessionForPos,
-} from "./cash-session-access.server";
-
 const terminalSchema = z.object({
 	terminal_id: z.string().trim().min(1).max(80).optional(),
 });
@@ -32,6 +25,9 @@ const cashSessionIdSchema = z.object({
 export const openCashSessionForPosFn = createServerFn({ method: "POST" })
 	.inputValidator((data: unknown) => openCashSessionSchema.parse(data ?? {}))
 	.handler(async ({ data }) => {
+		const { openCashSessionForPos } = await import(
+			"./cash-session-access.server"
+		);
 		return await openCashSessionForPos(data);
 	});
 
@@ -39,6 +35,9 @@ export const openCashSessionForPosFn = createServerFn({ method: "POST" })
 export const closeCashSessionForPosFn = createServerFn({ method: "POST" })
 	.inputValidator((data: unknown) => closeCashSessionSchema.parse(data))
 	.handler(async ({ data }) => {
+		const { closeCashSessionForPos } = await import(
+			"./cash-session-access.server"
+		);
 		return await closeCashSessionForPos(data);
 	});
 
@@ -46,6 +45,9 @@ export const closeCashSessionForPosFn = createServerFn({ method: "POST" })
 export const suspendCashSessionForPosFn = createServerFn({ method: "POST" })
 	.inputValidator((data: unknown) => cashSessionIdSchema.parse(data))
 	.handler(async ({ data }) => {
+		const { suspendCashSessionForPos } = await import(
+			"./cash-session-access.server"
+		);
 		return await suspendCashSessionForPos(data);
 	});
 
@@ -53,5 +55,8 @@ export const suspendCashSessionForPosFn = createServerFn({ method: "POST" })
 export const getActiveCashSessionForPosFn = createServerFn({ method: "POST" })
 	.inputValidator((data: unknown) => terminalSchema.parse(data ?? {}))
 	.handler(async ({ data }) => {
+		const { getActiveCashSessionForPos } = await import(
+			"./cash-session-access.server"
+		);
 		return await getActiveCashSessionForPos(data);
 	});
