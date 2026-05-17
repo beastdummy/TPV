@@ -16,6 +16,7 @@
     "db:auth-migrate": "node --env-file=.env ./node_modules/auth/dist/index.mjs migrate -y --config ./src/lib/auth.config.ts",
     "db:schema": "node --env-file=.env ./scripts/apply-sql.mjs ./db/schema.sql",
     "db:seed": "node --env-file=.env ./scripts/apply-sql.mjs ./db/seed_admin.sql",
+    "db:migrate:tenancy": "node --env-file=.env ./scripts/migrate-tenancy.mjs",
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose stop postgres",
     "docker:up": "docker compose up -d --build",
