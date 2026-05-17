@@ -4,14 +4,9 @@ import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 
 import { AdminShell } from "../../components/layout/admin-shell";
-import { getProductsFn } from "../../features/admin/server-fns";
-import { requireRoleForRoute } from "../../features/auth/route-guards";
-import { CATALOG_MANAGEMENT_ROLES } from "../../features/auth/types";
-import {
-	createInventoryMovementDetailedFn,
-	getInventoryItemsFn,
-	getWarehousesFn,
-} from "../../features/inventory/server-fns";
+import { getInventoryPageForAdminFn } from "../../features/admin/inventory.server-fns";
+import { requireCatalogManagementTenantForRoute } from "../../features/auth/route-guards";
+import { createInventoryMovementDetailedFn } from "../../features/inventory/server-fns";
 import {
 	STOCK_MOVEMENT_TYPES,
 	type StockMovementType,
@@ -19,15 +14,10 @@ import {
 
 export const Route = createFileRoute("/admin/inventory")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(CATALOG_MANAGEMENT_ROLES, location.href);
+		await requireCatalogManagementTenantForRoute(location.href);
 	},
 	loader: async () => {
-		const [warehouses, products, inventoryRows] = await Promise.all([
-			getWarehousesFn(),
-			getProductsFn(),
-			getInventoryItemsFn(),
-		]);
-		return { warehouses, products, inventoryRows };
+		return await getInventoryPageForAdminFn();
 	},
 	component: AdminInventoryPage,
 });
