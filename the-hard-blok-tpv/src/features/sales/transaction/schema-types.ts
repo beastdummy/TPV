@@ -7,6 +7,7 @@ export type CashSessionRow = {
 	terminal_id: string;
 	status: CashSessionStatus;
 	opening_float: number;
+	closing_amount: number | null;
 	opened_by_user_id: string;
 	closed_by_user_id: string | null;
 	opened_at: string;

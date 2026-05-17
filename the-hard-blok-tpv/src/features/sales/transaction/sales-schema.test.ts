@@ -15,6 +15,10 @@ const migrationSql = readFileSync(
 );
 
 describe("sales schema foundations (Fase A)", () => {
+	it("includes closing_amount on cash_sessions", () => {
+		expect(migrationSql).toContain("closing_amount NUMERIC(12, 2)");
+	});
+
 	it("defines core tables in migration SQL", () => {
 		expect(migrationSql).toContain("CREATE TABLE IF NOT EXISTS cash_sessions");
 		expect(migrationSql).toContain("CREATE TABLE IF NOT EXISTS sales");

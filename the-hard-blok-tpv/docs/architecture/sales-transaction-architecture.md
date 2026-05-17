@@ -253,7 +253,7 @@ Compatible con consultas existentes en `dashboard/queries.server.ts` (`status`, 
 | Fase | Entregable | Riesgo |
 |------|------------|--------|
 | A | Migración SQL + tipos | Bajo — **hecho** (`002_sales_transaction_foundations.sql`) |
-| B | `cash_sessions` open/close (sin ventas) | Medio |
+| B | `cash_sessions` open/close (sin ventas) | Medio — **hecho** (`closing_amount`, `requireOpenCashSessionForPos`) |
 | C | `finalizeSale` + idempotency + stock `product_stock` only | **Alto** |
 | D | Pagos reales / multipago | Alto |
 | E | `inventory_items` FIFO, refunds, offline | Alto |

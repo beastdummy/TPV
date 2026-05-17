@@ -4,6 +4,9 @@ import type { FinalizeSaleInput, FinalizeSaleResult } from "./types";
 /**
  * Pasos atómicos dentro de una transacción `FinalizeSale`.
  * Orden fijo — ver docs/architecture/sales-transaction-architecture.md
+ *
+ * Fase C1 implementa hasta `finalize_sale_status` + `store_idempotency_result`.
+ * Pendiente: `insert_sale_payments`, `decrement_stock`.
  */
 export const SALES_FINALIZE_BOUNDARY = [
 	"validate_context",
@@ -30,9 +33,6 @@ export const CASH_SESSION_BOUNDARY = {
 	] as const,
 };
 
-/**
- * Lanzar desde scaffolding o stubs hasta que exista el comando real.
- */
 export function assertSalesTransactionNotImplemented(operation: string): never {
 	throw new SalesTransactionError(
 		SALES_TX_ERROR_CODES.NOT_IMPLEMENTED,
@@ -41,11 +41,16 @@ export function assertSalesTransactionNotImplemented(operation: string): never {
 }
 
 /**
- * Stub documentado — NO ejecuta persistencia ni stock.
- * Sustituir por `finalizeSaleCommand` en fase de implementación.
+ * Finaliza venta (Fase C1) — delega en `finalize-sale-access.server`.
  */
-export async function finalizeSaleStub(
-	_input: FinalizeSaleInput,
+export async function finalizeSale(
+	input: FinalizeSaleInput,
 ): Promise<FinalizeSaleResult> {
-	assertSalesTransactionNotImplemented("finalize_sale");
+	const { finalizeSale: finalizeSaleCommand } = await import(
+		"../finalize-sale-access.server"
+	);
+	return await finalizeSaleCommand(input);
 }
+
+/** @deprecated Usar `finalizeSale`. */
+export const finalizeSaleStub = finalizeSale;

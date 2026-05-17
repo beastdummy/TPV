@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS cash_sessions (
   terminal_id TEXT NOT NULL DEFAULT 'default',
   status TEXT NOT NULL DEFAULT 'open',
   opening_float NUMERIC(12, 2) NOT NULL DEFAULT 0,
+  closing_amount NUMERIC(12, 2),
   opened_by_user_id UUID NOT NULL REFERENCES users (id) ON DELETE RESTRICT,
   closed_by_user_id UUID REFERENCES users (id) ON DELETE RESTRICT,
   opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -26,7 +27,9 @@ CREATE TABLE IF NOT EXISTS cash_sessions (
   CONSTRAINT cash_sessions_status_check
     CHECK (status IN ('open', 'closing', 'closed', 'suspended')),
   CONSTRAINT cash_sessions_opening_float_check
-    CHECK (opening_float >= 0)
+    CHECK (opening_float >= 0),
+  CONSTRAINT cash_sessions_closing_amount_check
+    CHECK (closing_amount IS NULL OR closing_amount >= 0)
 );
 
 CREATE INDEX IF NOT EXISTS cash_sessions_business_status_idx

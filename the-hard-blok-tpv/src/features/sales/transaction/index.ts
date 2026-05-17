@@ -7,6 +7,7 @@ export type { SalesFinalizeStep } from "./boundaries";
 export {
 	assertSalesTransactionNotImplemented,
 	CASH_SESSION_BOUNDARY,
+	finalizeSale,
 	finalizeSaleStub,
 	SALES_FINALIZE_BOUNDARY,
 } from "./boundaries";
@@ -16,6 +17,12 @@ export {
 	SALES_TX_ERROR_CODES,
 	SalesTransactionError,
 } from "./errors";
+export { executeFinalizeSaleCommand } from "./finalize-sale-command.server";
+export {
+	computeSaleLine,
+	computeSaleTotals,
+	roundMoney,
+} from "./finalize-sale-totals";
 export type {
 	BuildSaleIdempotencyKeyInput,
 	ParsedSaleIdempotencyKey,

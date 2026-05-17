@@ -29,12 +29,14 @@ try {
 		);
 	}
 
-	const ddlPath = join(
-		root,
-		"db/migrations/002_sales_transaction_foundations.sql",
-	);
-	await client.query(readFileSync(ddlPath, "utf8"));
-	console.log("Applied DDL: db/migrations/002_sales_transaction_foundations.sql");
+	for (const file of [
+		"002_sales_transaction_foundations.sql",
+		"003_sales_cash_session_closing_amount.sql",
+	]) {
+		const ddlPath = join(root, "db/migrations", file);
+		await client.query(readFileSync(ddlPath, "utf8"));
+		console.log(`Applied DDL: db/migrations/${file}`);
+	}
 
 	const tables = await client.query(
 		`
