@@ -4,7 +4,9 @@ import {
 	FolderTree,
 	LayoutGrid,
 	Package,
+	Shield,
 	ShoppingCart,
+	Users,
 	Warehouse,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -47,6 +49,16 @@ const navItems = [
 		label: "Compras",
 		icon: ShoppingCart,
 	},
+	{
+		to: "/admin/employees",
+		label: "Empleados",
+		icon: Users,
+	},
+	{
+		to: "/admin/roles",
+		label: "Roles y permisos",
+		icon: Shield,
+	},
 ];
 
 export function AdminShell({
@@ -69,7 +81,7 @@ export function AdminShell({
 						</p>
 						<h2 className="mt-2 text-xl font-semibold">The Hard Blok</h2>
 						<p className="mt-1 text-sm text-muted-foreground">
-							Gestión de categorías y productos
+							Catálogo, inventario y equipo
 						</p>
 					</div>
 

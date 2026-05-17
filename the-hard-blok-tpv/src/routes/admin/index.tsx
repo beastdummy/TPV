@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	Boxes,
 	FolderTree,
+	Monitor,
 	Package,
 	PlusCircle,
 	ShoppingCart,
@@ -45,13 +46,22 @@ function AdminIndexPage() {
 			title="Administración"
 			description="Centro de control para gestionar el catálogo del TPV."
 			actions={
-				<Link
-					to="/admin/products/create"
-					className="inline-flex items-center gap-2 rounded-2xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
-				>
-					<PlusCircle className="h-4 w-4" />
-					Nuevo producto
-				</Link>
+				<div className="flex flex-wrap items-center gap-3">
+					<Link
+						to="/sales"
+						className="inline-flex items-center gap-2 rounded-2xl border bg-background px-4 py-2 text-sm font-medium transition hover:bg-muted"
+					>
+						<Monitor className="h-4 w-4" />
+						Abrir TPV
+					</Link>
+					<Link
+						to="/admin/products/create"
+						className="inline-flex items-center gap-2 rounded-2xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+					>
+						<PlusCircle className="h-4 w-4" />
+						Nuevo producto
+					</Link>
+				</div>
 			}
 		>
 			<div className="grid gap-6 md:grid-cols-3">

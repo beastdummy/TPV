@@ -100,6 +100,39 @@ function redirectForPlatformAuthError(
 /**
  * Solo operadores SaaS (tabla platform_admins), no owners de negocio.
  */
+export async function requireBusinessPermissionForRoute(
+	permissionKey: string,
+	redirectTo: string,
+) {
+	await requireAuthForRoute(redirectTo);
+
+	const { ensureBusinessPermissionFn } = await import(
+		"../business-staff/staff.rpc"
+	);
+
+	try {
+		return await ensureBusinessPermissionFn({
+			data: { permission: permissionKey },
+		});
+	} catch (error) {
+		if (error instanceof Error && error.message === "UNAUTHORIZED") {
+			throw redirect({
+				to: "/login",
+				search: { redirect: redirectTo },
+			});
+		}
+
+		if (
+			error instanceof Error &&
+			(error.message === "FORBIDDEN" || error.message === "TENANT_NOT_FOUND")
+		) {
+			throw redirect({ to: "/dashboard" });
+		}
+
+		throw error;
+	}
+}
+
 export async function requirePlatformAdminForRoute(redirectTo: string) {
 	await requireAuthForRoute(redirectTo);
 

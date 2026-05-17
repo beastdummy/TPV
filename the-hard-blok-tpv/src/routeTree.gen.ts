@@ -19,9 +19,11 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminWarehousesRouteImport } from './routes/admin/warehouses'
+import { Route as AdminRolesRouteImport } from './routes/admin/roles'
 import { Route as AdminPurchasesRouteImport } from './routes/admin/purchases'
 import { Route as AdminProductsRouteImport } from './routes/admin/products'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
+import { Route as AdminEmployeesRouteImport } from './routes/admin/employees'
 import { Route as AdminCategoriesRouteImport } from './routes/admin/categories'
 import { Route as ApiMeDashboardRouteImport } from './routes/api/me/dashboard'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
@@ -78,6 +80,11 @@ const AdminWarehousesRoute = AdminWarehousesRouteImport.update({
   path: '/admin/warehouses',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRolesRoute = AdminRolesRouteImport.update({
+  id: '/admin/roles',
+  path: '/admin/roles',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminPurchasesRoute = AdminPurchasesRouteImport.update({
   id: '/admin/purchases',
   path: '/admin/purchases',
@@ -91,6 +98,11 @@ const AdminProductsRoute = AdminProductsRouteImport.update({
 const AdminInventoryRoute = AdminInventoryRouteImport.update({
   id: '/admin/inventory',
   path: '/admin/inventory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminEmployeesRoute = AdminEmployeesRouteImport.update({
+  id: '/admin/employees',
+  path: '/admin/employees',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminCategoriesRoute = AdminCategoriesRouteImport.update({
@@ -130,9 +142,11 @@ export interface FileRoutesByFullPath {
   '/sales': typeof SalesRoute
   '/signup': typeof SignupRoute
   '/admin/categories': typeof AdminCategoriesRoute
+  '/admin/employees': typeof AdminEmployeesRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
   '/admin/purchases': typeof AdminPurchasesRoute
+  '/admin/roles': typeof AdminRolesRoute
   '/admin/warehouses': typeof AdminWarehousesRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/products/create': typeof AdminProductsCreateRoute
@@ -150,9 +164,11 @@ export interface FileRoutesByTo {
   '/sales': typeof SalesRoute
   '/signup': typeof SignupRoute
   '/admin/categories': typeof AdminCategoriesRoute
+  '/admin/employees': typeof AdminEmployeesRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
   '/admin/purchases': typeof AdminPurchasesRoute
+  '/admin/roles': typeof AdminRolesRoute
   '/admin/warehouses': typeof AdminWarehousesRoute
   '/admin': typeof AdminIndexRoute
   '/admin/products/create': typeof AdminProductsCreateRoute
@@ -171,9 +187,11 @@ export interface FileRoutesById {
   '/sales': typeof SalesRoute
   '/signup': typeof SignupRoute
   '/admin/categories': typeof AdminCategoriesRoute
+  '/admin/employees': typeof AdminEmployeesRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
   '/admin/purchases': typeof AdminPurchasesRoute
+  '/admin/roles': typeof AdminRolesRoute
   '/admin/warehouses': typeof AdminWarehousesRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/products/create': typeof AdminProductsCreateRoute
@@ -193,9 +211,11 @@ export interface FileRouteTypes {
     | '/sales'
     | '/signup'
     | '/admin/categories'
+    | '/admin/employees'
     | '/admin/inventory'
     | '/admin/products'
     | '/admin/purchases'
+    | '/admin/roles'
     | '/admin/warehouses'
     | '/admin/'
     | '/admin/products/create'
@@ -213,9 +233,11 @@ export interface FileRouteTypes {
     | '/sales'
     | '/signup'
     | '/admin/categories'
+    | '/admin/employees'
     | '/admin/inventory'
     | '/admin/products'
     | '/admin/purchases'
+    | '/admin/roles'
     | '/admin/warehouses'
     | '/admin'
     | '/admin/products/create'
@@ -233,9 +255,11 @@ export interface FileRouteTypes {
     | '/sales'
     | '/signup'
     | '/admin/categories'
+    | '/admin/employees'
     | '/admin/inventory'
     | '/admin/products'
     | '/admin/purchases'
+    | '/admin/roles'
     | '/admin/warehouses'
     | '/admin/'
     | '/admin/products/create'
@@ -254,9 +278,11 @@ export interface RootRouteChildren {
   SalesRoute: typeof SalesRoute
   SignupRoute: typeof SignupRoute
   AdminCategoriesRoute: typeof AdminCategoriesRoute
+  AdminEmployeesRoute: typeof AdminEmployeesRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminProductsRoute: typeof AdminProductsRouteWithChildren
   AdminPurchasesRoute: typeof AdminPurchasesRoute
+  AdminRolesRoute: typeof AdminRolesRoute
   AdminWarehousesRoute: typeof AdminWarehousesRoute
   AdminIndexRoute: typeof AdminIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -335,6 +361,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminWarehousesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/roles': {
+      id: '/admin/roles'
+      path: '/admin/roles'
+      fullPath: '/admin/roles'
+      preLoaderRoute: typeof AdminRolesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/purchases': {
       id: '/admin/purchases'
       path: '/admin/purchases'
@@ -354,6 +387,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/inventory'
       fullPath: '/admin/inventory'
       preLoaderRoute: typeof AdminInventoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/employees': {
+      id: '/admin/employees'
+      path: '/admin/employees'
+      fullPath: '/admin/employees'
+      preLoaderRoute: typeof AdminEmployeesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/categories': {
@@ -418,9 +458,11 @@ const rootRouteChildren: RootRouteChildren = {
   SalesRoute: SalesRoute,
   SignupRoute: SignupRoute,
   AdminCategoriesRoute: AdminCategoriesRoute,
+  AdminEmployeesRoute: AdminEmployeesRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminProductsRoute: AdminProductsRouteWithChildren,
   AdminPurchasesRoute: AdminPurchasesRoute,
+  AdminRolesRoute: AdminRolesRoute,
   AdminWarehousesRoute: AdminWarehousesRoute,
   AdminIndexRoute: AdminIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
