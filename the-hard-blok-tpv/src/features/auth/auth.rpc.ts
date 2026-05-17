@@ -32,12 +32,25 @@ export const getAppUserFn = createServerFn({ method: "GET" }).handler(
 /** Whether OAuth providers are configured (no secrets exposed to the client). */
 export const getOAuthSetupFn = createServerFn({ method: "GET" }).handler(
 	async () => {
+		const { isDevAuthEnabled } = await import("./dev-auth.server");
 		const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim();
 		const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
 
 		return {
 			google: Boolean(googleClientId && googleClientSecret),
+			devLogin: isDevAuthEnabled(),
 		};
+	},
+);
+
+/** Local-only dev owner sign-in (disabled in production). */
+export const signInDevOwnerFn = createServerFn({ method: "POST" }).handler(
+	async () => {
+		const { assertDevAuthEnabled, signInDevOwner } = await import(
+			"./dev-auth.server"
+		);
+		assertDevAuthEnabled();
+		return await signInDevOwner();
 	},
 );
 

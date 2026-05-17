@@ -1,7 +1,11 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { getAppUserFn, getOAuthSetupFn } from "../features/auth/auth.rpc";
+import {
+	getAppUserFn,
+	getOAuthSetupFn,
+	signInDevOwnerFn,
+} from "../features/auth/auth.rpc";
 import { authClient } from "../lib/auth-client";
 
 type LoginSearch = {
@@ -31,6 +35,27 @@ function LoginPage() {
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+	function resolvePostLoginPath() {
+		return search.redirect?.startsWith("/") ? search.redirect : "/dashboard";
+	}
+
+	async function handleDevOwnerSignIn() {
+		setErrorMessage(null);
+		setIsSubmitting(true);
+
+		try {
+			await signInDevOwnerFn();
+			window.location.assign(resolvePostLoginPath());
+		} catch (error) {
+			setErrorMessage(
+				error instanceof Error
+					? error.message
+					: "No se pudo iniciar sesión de desarrollo.",
+			);
+			setIsSubmitting(false);
+		}
+	}
+
 	async function handleGoogleSignIn() {
 		if (!oauth.google) {
 			return;
@@ -41,9 +66,7 @@ function LoginPage() {
 		try {
 			await authClient.signIn.social({
 				provider: "google",
-				callbackURL: search.redirect?.startsWith("/")
-					? search.redirect
-					: "/dashboard",
+				callbackURL: resolvePostLoginPath(),
 			});
 		} catch (error) {
 			setErrorMessage(
@@ -102,6 +125,17 @@ function LoginPage() {
 					>
 						{isSubmitting ? "Redirigiendo..." : "Continuar con Google"}
 					</button>
+
+					{oauth.devLogin ? (
+						<button
+							type="button"
+							onClick={handleDevOwnerSignIn}
+							disabled={isSubmitting}
+							className="inline-flex w-full items-center justify-center rounded-2xl border border-dashed border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-950 transition hover:bg-amber-100 disabled:opacity-60"
+						>
+							{isSubmitting ? "Entrando..." : "Entrar como Owner Dev"}
+						</button>
+					) : null}
 
 					<Link
 						to="/"
