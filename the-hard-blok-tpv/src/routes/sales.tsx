@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "../components/layout/app-shell";
 import { requireRoleForRoute } from "../features/auth/route-guards";
@@ -85,37 +85,37 @@ function SalesPage() {
 		items[items.length - 1] ??
 		null;
 
-	function getNumericInput() {
+	const getNumericInput = useCallback(() => {
 		const parsed = Number.parseFloat(keypadValue);
 		if (!Number.isFinite(parsed)) return 0;
 		return parsed;
-	}
+	}, [keypadValue]);
 
-	function resetKeypad() {
+	const resetKeypad = useCallback(() => {
 		setKeypadValue("0");
-	}
+	}, []);
 
-	function appendKeypadDigit(digit: string) {
+	const appendKeypadDigit = useCallback((digit: string) => {
 		setKeypadValue((prev) => {
 			if (digit === "." && prev.includes(".")) return prev;
 			if (prev === "0" && digit !== ".") return digit;
 			return `${prev}${digit}`;
 		});
-	}
+	}, []);
 
-	function backspaceKeypad() {
+	const backspaceKeypad = useCallback(() => {
 		setKeypadValue((prev) => (prev.length > 1 ? prev.slice(0, -1) : "0"));
-	}
+	}, []);
 
-	function requireSelectedItem() {
+	const requireSelectedItem = useCallback(() => {
 		if (!selectedItem) {
 			setActionMessage("Selecciona primero un producto del ticket.");
 			return false;
 		}
 		return true;
-	}
+	}, [selectedItem]);
 
-	function applyEnterAction() {
+	const applyEnterAction = useCallback(() => {
 		if (!requireSelectedItem()) return;
 		const quantity = Math.max(0, Math.floor(getNumericInput()));
 		setItemQuantity(selectedItem.id, quantity);
@@ -126,17 +126,29 @@ function SalesPage() {
 			setActionMessage(`Cantidad de "${selectedItem.name}" = ${quantity}.`);
 		}
 		resetKeypad();
-	}
+	}, [
+		getNumericInput,
+		requireSelectedItem,
+		resetKeypad,
+		selectedItem,
+		setItemQuantity,
+	]);
 
-	function applyPlusAction() {
+	const applyPlusAction = useCallback(() => {
 		if (!requireSelectedItem()) return;
 		const amount = Math.max(1, Math.floor(getNumericInput()));
 		incrementItemQuantity(selectedItem.id, amount);
 		setActionMessage(`+${amount} ud. en "${selectedItem.name}".`);
 		resetKeypad();
-	}
+	}, [
+		getNumericInput,
+		incrementItemQuantity,
+		requireSelectedItem,
+		resetKeypad,
+		selectedItem,
+	]);
 
-	function applyMinusAction() {
+	const applyMinusAction = useCallback(() => {
 		if (!requireSelectedItem()) return;
 		const amount = Math.max(1, Math.floor(getNumericInput()));
 		decrementItemQuantity(selectedItem.id, amount);
@@ -146,7 +158,14 @@ function SalesPage() {
 		}
 		setActionMessage(`-${amount} ud. en "${selectedItem.name}".`);
 		resetKeypad();
-	}
+	}, [
+		decrementItemQuantity,
+		getNumericInput,
+		items,
+		requireSelectedItem,
+		resetKeypad,
+		selectedItem,
+	]);
 
 	function applyDiscountAction() {
 		if (!requireSelectedItem()) return;
@@ -231,7 +250,13 @@ function SalesPage() {
 
 		window.addEventListener("keydown", onKeyDown);
 		return () => window.removeEventListener("keydown", onKeyDown);
-	}, [applyEnterAction, applyMinusAction, applyPlusAction]);
+	}, [
+		appendKeypadDigit,
+		applyEnterAction,
+		applyMinusAction,
+		applyPlusAction,
+		backspaceKeypad,
+	]);
 
 	return (
 		<AppShell title="Ventas">
@@ -271,31 +296,24 @@ function SalesPage() {
 								</div>
 							) : (
 								items.map((item) => (
-									<div
+									<button
 										key={item.id}
+										type="button"
 										onClick={() => setSelectedItemId(item.id)}
-										onKeyDown={(event) => {
-											if (event.key === "Enter" || event.key === " ") {
-												event.preventDefault();
-												setSelectedItemId(item.id);
-											}
-										}}
-										className={`grid grid-cols-[minmax(0,1fr)_48px_84px] items-center gap-2 rounded-lg px-2.5 py-1.5 text-[11px] transition ${
+										className={`grid w-full grid-cols-[minmax(0,1fr)_48px_84px] items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[11px] transition ${
 											selectedItem?.id === item.id
 												? "border border-primary bg-primary/10"
 												: "bg-muted/40"
 										}`}
-										role="button"
-										tabIndex={0}
 									>
 										<span className="truncate leading-tight">{item.name}</span>
 										<span className="text-center tabular-nums">
 											{item.quantity}
 										</span>
-										<div className="text-right tabular-nums font-medium">
+										<span className="text-right tabular-nums font-medium">
 											{getLineTotal(item).toFixed(2)} €
-										</div>
-									</div>
+										</span>
+									</button>
 								))
 							)}
 						</div>
