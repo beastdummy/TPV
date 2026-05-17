@@ -22,3 +22,39 @@ export async function removeProductForAdmin(productId: string) {
 	const { deleteProduct } = await import("./queries.server");
 	return await deleteProduct(productId);
 }
+
+export type CreateProductForAdminInput = {
+	name: string;
+	description: string;
+	price: number;
+	category_id: string;
+	image_url: string;
+	tax_rate: number;
+	warehouse: string;
+	sort_order: number;
+};
+
+export type UpdateProductForAdminInput = CreateProductForAdminInput & {
+	id: string;
+	is_active: boolean;
+};
+
+export async function createProductForAdmin(data: CreateProductForAdminInput) {
+	await ensureCatalogManagementBusinessRole();
+	const { createProduct } = await import("./queries.server");
+	await createProduct(data);
+	return { ok: true as const };
+}
+
+export async function loadProductByIdForAdmin(productId: string) {
+	await ensureCatalogManagementBusinessRole();
+	const { getProductById } = await import("./queries.server");
+	return await getProductById(productId);
+}
+
+export async function updateProductForAdmin(data: UpdateProductForAdminInput) {
+	await ensureCatalogManagementBusinessRole();
+	const { updateProduct } = await import("./queries.server");
+	await updateProduct(data);
+	return { ok: true as const };
+}
