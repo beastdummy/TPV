@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 
 import { db } from "../../lib/db.server";
+import { ensureDefaultBusinessMembership } from "../tenancy/membership.server";
 import { hashPassword } from "./password.server";
 import type { AuthUser, Role } from "./types";
 
@@ -21,6 +22,31 @@ function resolveDefaultRoleForNewUser(): Role {
 	}
 
 	return "cashier";
+}
+
+async function syncTenancyMembershipForUser(user: {
+	id: string;
+	role: Role;
+	is_active: boolean;
+}) {
+	await ensureDefaultBusinessMembership({
+		userId: user.id,
+		role: user.role,
+		isActive: user.is_active,
+	});
+}
+
+function toSessionUser(
+	user: Pick<AuthUser, "id" | "role">,
+	email: string,
+	name: string,
+): Pick<AuthUser, "id" | "email" | "name" | "role"> {
+	return {
+		id: user.id,
+		email,
+		name,
+		role: user.role,
+	};
 }
 
 export async function syncAppUserFromBetterAuthSession(params: {
@@ -56,12 +82,9 @@ export async function syncAppUserFromBetterAuthSession(params: {
 			[user.id, email, params.name],
 		);
 
-		return {
-			id: user.id,
-			email,
-			name: params.name,
-			role: user.role,
-		};
+		await syncTenancyMembershipForUser(user);
+
+		return toSessionUser(user, email, params.name);
 	}
 
 	const existingByEmail = await db.query<AuthUser>(
@@ -89,12 +112,9 @@ export async function syncAppUserFromBetterAuthSession(params: {
 			[user.id, googleSub, params.name],
 		);
 
-		return {
-			id: user.id,
-			email,
-			name: params.name,
-			role: user.role,
-		};
+		await syncTenancyMembershipForUser(user);
+
+		return toSessionUser(user, email, params.name);
 	}
 
 	const role = resolveDefaultRoleForNewUser();
@@ -116,10 +136,8 @@ export async function syncAppUserFromBetterAuthSession(params: {
 		throw new Error("No se pudo crear el usuario en la base de datos.");
 	}
 
-	return {
-		id,
-		email,
-		name: params.name,
-		role,
-	};
+	const createdUser = { id, role, is_active: true };
+	await syncTenancyMembershipForUser(createdUser);
+
+	return toSessionUser(createdUser, email, params.name);
 }
