@@ -1,4 +1,4 @@
-const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+import { SLUG_PATTERN } from "./slug";
 
 export type DefaultBusinessConfig = {
 	slug: string;

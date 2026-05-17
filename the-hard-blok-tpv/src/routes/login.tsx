@@ -138,8 +138,15 @@ function LoginPage() {
 					) : null}
 
 					<Link
-						to="/"
+						to="/register"
 						className="inline-flex w-full items-center justify-center rounded-2xl border bg-background px-4 py-3 text-sm font-medium transition hover:bg-muted"
+					>
+						Crear cuenta nueva
+					</Link>
+
+					<Link
+						to="/"
+						className="inline-flex w-full items-center justify-center rounded-2xl border border-transparent px-4 py-2 text-sm text-muted-foreground transition hover:text-foreground"
 					>
 						Volver
 					</Link>

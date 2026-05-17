@@ -41,8 +41,6 @@ export function getAuth(): ReturnType<typeof betterAuth> {
 	const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
 
 	const googleEnabled = Boolean(googleClientId && googleClientSecret);
-	const emailPasswordEnabled = process.env.NODE_ENV !== "production";
-
 	authSingleton = betterAuth({
 		baseURL: betterAuthUrl,
 		secret: betterAuthSecret,
@@ -50,7 +48,7 @@ export function getAuth(): ReturnType<typeof betterAuth> {
 			connectionString: databaseUrl,
 		}),
 		emailAndPassword: {
-			enabled: emailPasswordEnabled,
+			enabled: true,
 		},
 		socialProviders: googleEnabled
 			? {

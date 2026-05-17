@@ -9,7 +9,9 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SalesRouteImport } from './routes/sales'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as PinRouteImport } from './routes/pin'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -25,9 +27,19 @@ import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AdminProductsCreateRouteImport } from './routes/admin/products.create'
 import { Route as AdminProductsProductIdEditRouteImport } from './routes/admin/products.$productId.edit'
 
+const SignupRoute = SignupRouteImport.update({
+  id: '/signup',
+  path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SalesRoute = SalesRouteImport.update({
   id: '/sales',
   path: '/sales',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PinRoute = PinRouteImport.update({
@@ -107,7 +119,9 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/pin': typeof PinRoute
+  '/register': typeof RegisterRoute
   '/sales': typeof SalesRoute
+  '/signup': typeof SignupRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
@@ -124,7 +138,9 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/pin': typeof PinRoute
+  '/register': typeof RegisterRoute
   '/sales': typeof SalesRoute
+  '/signup': typeof SignupRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
@@ -142,7 +158,9 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/pin': typeof PinRoute
+  '/register': typeof RegisterRoute
   '/sales': typeof SalesRoute
+  '/signup': typeof SignupRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
@@ -161,7 +179,9 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/pin'
+    | '/register'
     | '/sales'
+    | '/signup'
     | '/admin/categories'
     | '/admin/inventory'
     | '/admin/products'
@@ -178,7 +198,9 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/pin'
+    | '/register'
     | '/sales'
+    | '/signup'
     | '/admin/categories'
     | '/admin/inventory'
     | '/admin/products'
@@ -195,7 +217,9 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/pin'
+    | '/register'
     | '/sales'
+    | '/signup'
     | '/admin/categories'
     | '/admin/inventory'
     | '/admin/products'
@@ -213,7 +237,9 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   PinRoute: typeof PinRoute
+  RegisterRoute: typeof RegisterRoute
   SalesRoute: typeof SalesRoute
+  SignupRoute: typeof SignupRoute
   AdminCategoriesRoute: typeof AdminCategoriesRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminProductsRoute: typeof AdminProductsRouteWithChildren
@@ -226,11 +252,25 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/signup': {
+      id: '/signup'
+      path: '/signup'
+      fullPath: '/signup'
+      preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sales': {
       id: '/sales'
       path: '/sales'
       fullPath: '/sales'
       preLoaderRoute: typeof SalesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pin': {
@@ -353,7 +393,9 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   PinRoute: PinRoute,
+  RegisterRoute: RegisterRoute,
   SalesRoute: SalesRoute,
+  SignupRoute: SignupRoute,
   AdminCategoriesRoute: AdminCategoriesRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminProductsRoute: AdminProductsRouteWithChildren,
