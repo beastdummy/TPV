@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { CheckCircle2, Circle } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
 	SetupCreatedList,
 	SetupWizardNav,
@@ -31,6 +31,15 @@ import {
 	snapshotFromSetupState,
 } from "../features/business-setup/setup-navigation";
 import { SETUP_QUICK_ROLE_PRESETS } from "../features/business-setup/setup-role-presets";
+import {
+	isSetupReadyForCompletion,
+	normalizeSetupStep,
+} from "../features/business-setup/setup-step-resolution";
+import {
+	clampActiveSetupStep,
+	getSafeSetupState,
+	isSetupOperationallyReady,
+} from "../features/business-setup/setup-wizard-state";
 import type { SetupStep } from "../features/business-setup/types";
 import { SETUP_STEPS } from "../features/business-setup/types";
 
@@ -76,29 +85,65 @@ function SetupPage() {
 	const { wizard: initialWizard } = Route.useLoaderData();
 	const router = useRouter();
 	const [wizard, setWizard] = useState(initialWizard);
-	const [activeStep, setActiveStep] = useState<SetupStep>(
-		initialWizard.setup.currentStep,
+	const setupState = useMemo(
+		() => getSafeSetupState(wizard?.setup),
+		[wizard?.setup],
+	);
+	const initialRequiredStep = normalizeSetupStep(
+		initialWizard?.setup?.currentStep,
+	);
+	const [activeStep, setActiveStep] = useState<SetupStep>(() =>
+		clampActiveSetupStep(
+			initialRequiredStep,
+			initialRequiredStep,
+			initialWizard?.setup,
+		),
 	);
 	const [error, setError] = useState<string | null>(null);
 	const [isBusy, setIsBusy] = useState(false);
 
-	const requiredStep = wizard.setup.currentStep;
+	const requiredStep = setupState.currentStep;
 	const setupSnapshot = useMemo(
-		() => snapshotFromSetupState(wizard.setup),
-		[wizard.setup],
+		() => snapshotFromSetupState(setupState),
+		[setupState],
 	);
+	const isOperationallyReady = isSetupOperationallyReady(setupState);
+	const showReadyToSell =
+		isOperationallyReady &&
+		requiredStep === "complete" &&
+		activeStep === "complete";
+	const showIncompleteFinal = activeStep === "complete" && !showReadyToSell;
+	const headerTitle = showIncompleteFinal
+		? "Configuración incompleta"
+		: STEP_LABELS[activeStep];
+	const displayStep = showIncompleteFinal ? requiredStep : activeStep;
 
 	const stepIndex = useMemo(
-		() => SETUP_STEPS.indexOf(activeStep),
-		[activeStep],
+		() => SETUP_STEPS.indexOf(displayStep),
+		[displayStep],
 	);
+
+	useEffect(() => {
+		const clamped = clampActiveSetupStep(activeStep, requiredStep, setupState);
+		if (clamped !== activeStep) {
+			setActiveStep(clamped);
+		}
+	}, [activeStep, requiredStep, setupState]);
 
 	async function refreshWizard(options?: { preserveActiveStep?: boolean }) {
 		const next = await loadSetupWizardContextFn();
 		setWizard(next);
 		setOperationalWarehouse(next.operationalWarehouse ?? null);
+		const nextSetup = getSafeSetupState(next?.setup);
+		const nextRequired = nextSetup.currentStep;
 		if (!options?.preserveActiveStep) {
-			setActiveStep(next.setup.currentStep);
+			setActiveStep(
+				clampActiveSetupStep(nextRequired, nextRequired, nextSetup),
+			);
+		} else {
+			setActiveStep((current) =>
+				clampActiveSetupStep(current, nextRequired, nextSetup),
+			);
 		}
 		await router.invalidate();
 	}
@@ -138,12 +183,17 @@ function SetupPage() {
 			setOperationalWarehouse(result.operationalWarehouse);
 		}
 		setWizard((prev) => ({
-			business: result.business ?? prev.business,
-			setup: result.setup,
+			business: result.business ?? prev?.business,
+			setup: result.setup ?? prev?.setup ?? setupState,
 			operationalWarehouse: nextOperational,
-			productStockLines: result.productStockLines ?? prev.productStockLines,
-			products: result.products ?? prev.products,
-			staff: result.staff ?? prev.staff,
+			productStockLines:
+				result.productStockLines ?? prev?.productStockLines ?? [],
+			products: result.products ?? prev?.products ?? [],
+			staff: result.staff ??
+				prev?.staff ?? { employees: [], roles: [], hasCustomRoles: false },
+			categories: prev?.categories ?? [],
+			warehouses: prev?.warehouses ?? [],
+			suppliers: prev?.suppliers ?? [],
 		}));
 	}
 
@@ -200,10 +250,14 @@ function SetupPage() {
 		pin: "",
 	});
 
-	const productStockLines = wizard.productStockLines;
-	const setupProducts = wizard.products;
-	const setupCategories = wizard.categories;
-	const setupStaff = wizard.staff;
+	const productStockLines = wizard?.productStockLines ?? [];
+	const setupProducts = wizard?.products ?? [];
+	const setupCategories = wizard?.categories ?? [];
+	const setupStaff = wizard?.staff ?? {
+		employees: [],
+		roles: [],
+		hasCustomRoles: false,
+	};
 	const assignableRoles =
 		setupStaff.roles.length > 0
 			? setupStaff.roles
@@ -239,8 +293,8 @@ function SetupPage() {
 						<ol className="mt-6 space-y-3">
 							{SETUP_STEPS.filter((s) => s !== "complete").map(
 								(step, index) => {
-									const done = wizard.setup.completedSteps.includes(step);
-									const active = step === activeStep;
+									const done = setupState.completedSteps.includes(step);
+									const active = step === displayStep;
 									return (
 										<li
 											key={step}
@@ -270,12 +324,21 @@ function SetupPage() {
 					<p className="text-sm text-muted-foreground">
 						Paso {Math.min(stepIndex + 1, 10)} de 10
 					</p>
-					<h2 className="mt-1 text-2xl font-semibold">
-						{STEP_LABELS[activeStep]}
-					</h2>
-					{activeStep !== requiredStep ? (
+					<h2 className="mt-1 text-2xl font-semibold">{headerTitle}</h2>
+					{showIncompleteFinal ? (
+						<p className="mt-2 text-sm text-muted-foreground">
+							Faltan pasos obligatorios antes de poder vender. Continúa desde el
+							paso pendiente.
+						</p>
+					) : null}
+					{!showIncompleteFinal && activeStep !== requiredStep ? (
 						<p className="mt-1 text-xs text-amber-800">
 							Paso pendiente mínimo: {STEP_LABELS[requiredStep]}
+						</p>
+					) : null}
+					{showIncompleteFinal ? (
+						<p className="mt-1 text-xs text-amber-800">
+							Paso pendiente: {STEP_LABELS[requiredStep]}
 						</p>
 					) : null}
 
@@ -1054,20 +1117,35 @@ function SetupPage() {
 											disabled={isBusy}
 											className={btnPrimary}
 											onClick={() =>
-												runStep(
-													async () => {
-														await setupOpenCashSessionFn({
-															data: {
-																opening_float:
-																	Number.parseFloat(openingFloat) || 0,
-															},
-														});
-													},
-													{
-														preserveActiveStep: false,
-														advanceTo: "complete",
-													},
-												)
+												runStep(async () => {
+													const result = await setupOpenCashSessionFn({
+														data: {
+															opening_float:
+																Number.parseFloat(openingFloat) || 0,
+														},
+													});
+													if (result.setup) {
+														applyWizardResult({ setup: result.setup });
+													}
+													const nextSetup = getSafeSetupState(result.setup);
+													if (
+														isSetupReadyForCompletion({
+															businessDetailsConfirmed:
+																nextSetup.businessDetailsConfirmed,
+															hasWarehouse: nextSetup.hasWarehouse,
+															hasCategory: nextSetup.hasCategory,
+															hasProduct: nextSetup.hasProduct,
+															hasInitialStock: nextSetup.hasInitialStock,
+															inventoryReviewed: nextSetup.inventoryReviewed,
+															cashConfigured: nextSetup.cashConfigured,
+															staffStepHandled: nextSetup.staffStepHandled,
+															hasOpenCashSession: nextSetup.hasOpenCashSession,
+															setupCompleted: nextSetup.setupCompleted,
+														})
+													) {
+														setActiveStep("complete");
+													}
+												})
 											}
 										>
 											Abrir caja
@@ -1077,7 +1155,26 @@ function SetupPage() {
 							</>
 						) : null}
 
-						{activeStep === "complete" ? (
+						{showIncompleteFinal ? (
+							<SetupWizardNav
+								showBack={canGoBack}
+								onBack={goBack}
+								primaryActions={
+									<button
+										type="button"
+										className={btnPrimary}
+										onClick={() => {
+											setActiveStep(requiredStep);
+											setError(null);
+										}}
+									>
+										Continuar configuración
+									</button>
+								}
+							/>
+						) : null}
+
+						{showReadyToSell ? (
 							<>
 								<p className="text-sm text-muted-foreground">
 									¡Tu TPV está listo! Abre ventas con tu PIN de propietario.
@@ -1085,8 +1182,8 @@ function SetupPage() {
 								<div className="flex flex-wrap gap-3">
 									<button
 										type="button"
-										disabled={isBusy}
-										className="rounded-2xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+										disabled={isBusy || !isOperationallyReady}
+										className="rounded-2xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
 										onClick={() =>
 											runStep(async () => {
 												const result = await finishBusinessSetupFn();

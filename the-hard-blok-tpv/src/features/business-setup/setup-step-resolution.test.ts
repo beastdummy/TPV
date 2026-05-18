@@ -147,6 +147,29 @@ describe("resolveSetupCurrentStep", () => {
 		]);
 	});
 
+	it("never returns complete with inconsistent flags even if cash is open", () => {
+		expect(
+			resolveSetupCurrentStep({
+				...baseFlags,
+				businessDetailsConfirmed: true,
+				hasWarehouse: true,
+				hasCategory: true,
+				hasProduct: true,
+				hasInitialStock: true,
+				inventoryReviewed: false,
+				cashConfigured: true,
+				staffStepHandled: true,
+				hasOpenCashSession: true,
+			}),
+		).toBe("review_inventory");
+	});
+
+	it("resolveSetupCurrentStep always returns a valid step id", () => {
+		const step = resolveSetupCurrentStep(baseFlags);
+		expect(step).toBeTruthy();
+		expect(typeof step).toBe("string");
+	});
+
 	it("setup can complete with only owner when staff step was skipped", () => {
 		expect(
 			isSetupReadyForCompletion({

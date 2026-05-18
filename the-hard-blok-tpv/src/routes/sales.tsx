@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AppShell } from "../components/layout/app-shell";
 import { PosOperatorPinScreen } from "../components/pos/pos-operator-pin-screen";
 import { requirePosOperationTenantForRoute } from "../features/auth/route-guards";
+import { getBusinessSetupStateFn } from "../features/business-setup/setup.rpc";
 import {
 	getActivePosOperatorFn,
 	lockPosTerminalFn,
@@ -45,13 +46,55 @@ export const Route = createFileRoute("/sales")({
 	beforeLoad: async ({ location }) => {
 		await requirePosOperationTenantForRoute(location.href);
 	},
-	loader: async () => await getSalesCatalogForPosFn(),
+	loader: async () => {
+		const [catalog, setup] = await Promise.all([
+			getSalesCatalogForPosFn(),
+			getBusinessSetupStateFn(),
+		]);
+
+		return {
+			catalog,
+			setupBlocked: Boolean(setup && !setup.setupCompleted),
+		};
+	},
 	component: SalesPage,
 });
 
+function SetupIncompleteSalesBlock() {
+	return (
+		<AppShell title="TPV / Ventas">
+			<div className="rounded-3xl border bg-card p-8 text-center">
+				<h2 className="text-xl font-semibold">
+					Configuración inicial pendiente
+				</h2>
+				<p className="mt-2 text-sm text-muted-foreground">
+					Completa la configuración inicial antes de vender.
+				</p>
+				<Link
+					to="/setup"
+					className="mt-6 inline-flex rounded-2xl border border-primary bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground"
+				>
+					Ir a configuración
+				</Link>
+			</div>
+		</AppShell>
+	);
+}
+
 function SalesPage() {
-	const { categories, products, operationalWarehouse, posWarehouse } =
-		Route.useLoaderData();
+	const { catalog, setupBlocked } = Route.useLoaderData();
+	if (setupBlocked) {
+		return <SetupIncompleteSalesBlock />;
+	}
+	return <SalesPosPage catalog={catalog} />;
+}
+
+function SalesPosPage({
+	catalog,
+}: {
+	catalog: Awaited<ReturnType<typeof getSalesCatalogForPosFn>>;
+}) {
+	const { categories, products, operationalWarehouse, posWarehouse } = catalog;
 	const [saleWarehouseId, setSaleWarehouseId] = useState(
 		operationalWarehouse.id,
 	);

@@ -8,6 +8,7 @@ import {
 import { logBusinessAuditEvent } from "./audit.server";
 import {
 	hasInitialStockRecorded,
+	isInventoryReviewedForBusiness,
 	listProductStockLinesForSetup,
 	markBusinessDetailsConfirmed,
 	markBusinessSetupCompleted,
@@ -189,6 +190,37 @@ export async function markCashConfiguredStep(openingFloat: number) {
 	await markCashConfiguredForBusiness(businessId, openingFloat);
 	const setup = await getBusinessSetupState(businessId);
 	return { ok: true as const, setup };
+}
+
+export async function setupOpenCashSessionStep(openingFloat: number) {
+	const { businessId } = await requireOwnerBusinessContext();
+	const setup = await getBusinessSetupState(businessId);
+
+	if (!setup.hasInitialStock) {
+		throw new Error(
+			"Registra al menos una compra o entrada inicial de stock antes de abrir la caja.",
+		);
+	}
+
+	if (!setup.inventoryReviewed) {
+		throw new Error(
+			"Revisa el inventario antes de abrir la caja en la configuración inicial.",
+		);
+	}
+
+	if (!setup.cashConfigured) {
+		throw new Error("Configura el fondo de caja antes de abrir la sesión.");
+	}
+
+	const { setupOpenCashSession } = await import(
+		"./setup-wizard-actions.server"
+	);
+	await setupOpenCashSession(businessId, openingFloat);
+
+	return {
+		ok: true as const,
+		setup: await getBusinessSetupState(businessId),
+	};
 }
 
 export async function completeSetupStaffStep() {

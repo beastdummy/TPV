@@ -12,6 +12,7 @@ import {
 } from "./setup-queries.server";
 import {
 	buildSetupCompletedSteps,
+	canEnterSalesAfterSetup,
 	isSetupReadyForCompletion,
 	resolveSetupCurrentStep,
 } from "./setup-step-resolution";
@@ -81,7 +82,7 @@ export async function getBusinessSetupState(
 		staffStepHandled,
 		hasCashSession: hasOpenCashSession,
 		hasOpenCashSession,
-		canAccessSales: hasOpenCashSession,
+		canAccessSales: canEnterSalesAfterSetup(flags),
 		setupCompleted,
 		currentStep: resolveSetupCurrentStep(flags),
 		completedSteps: buildSetupCompletedSteps(flags),

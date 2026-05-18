@@ -148,11 +148,8 @@ export const setupOpenCashSessionFn = createServerFn({ method: "POST" })
 		return parsed;
 	})
 	.handler(async ({ data }) => {
-		const { setupOpenCashSession } = await import(
-			"./setup-wizard-actions.server"
-		);
-		const businessId = await requireBusinessIdFromContext();
-		return await setupOpenCashSession(businessId, data.opening_float ?? 0);
+		const { setupOpenCashSessionStep } = await import("./setup-access.server");
+		return await setupOpenCashSessionStep(data.opening_float ?? 0);
 	});
 
 export const markInventoryReviewedStepFn = createServerFn({
