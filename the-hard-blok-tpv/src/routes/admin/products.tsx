@@ -9,22 +9,21 @@ import { PlusCircle, Search, Trash2 } from "lucide-react";
 
 import { AdminShell } from "../../components/layout/admin-shell";
 import {
-	deleteProductFn,
-	getCategoriesFn,
-	getProductsFn,
-} from "../../features/admin/server-fns";
+	deleteProductForAdminFn,
+	getCategoriesForProductsPageFn,
+	getProductsForAdminFn,
+} from "../../features/admin/products.server-fns";
 import type { Category, Product } from "../../features/admin/types";
-import { requireRoleForRoute } from "../../features/auth/route-guards";
-import { CATALOG_MANAGEMENT_ROLES } from "../../features/auth/types";
+import { requireCatalogManagementTenantForRoute } from "../../features/auth/route-guards";
 
 export const Route = createFileRoute("/admin/products")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(CATALOG_MANAGEMENT_ROLES, location.href);
+		await requireCatalogManagementTenantForRoute(location.href);
 	},
 	loader: async () => {
 		const [categories, products] = await Promise.all([
-			getCategoriesFn(),
-			getProductsFn(),
+			getCategoriesForProductsPageFn(),
+			getProductsForAdminFn(),
 		]);
 
 		return { categories, products };
@@ -51,7 +50,7 @@ function AdminProductsPage() {
 		if (!confirmed) return;
 
 		try {
-			await deleteProductFn({
+			await deleteProductForAdminFn({
 				data: { id: productId },
 			});
 
@@ -122,77 +121,68 @@ function AdminProductsPage() {
 					{products.map((product: Product) => (
 						<div
 							key={product.id}
-							onClick={() =>
-								navigate({
-									to: "/admin/products/$productId/edit",
-									params: { productId: String(product.id) },
-								})
-							}
-							onKeyDown={(event) => {
-								if (event.key === "Enter" || event.key === " ") {
-									event.preventDefault();
+							className="grid w-full grid-cols-[70px_1.6fr_1fr_120px_90px_120px_90px_110px_90px] gap-3 px-4 py-3 text-sm transition hover:bg-muted/40"
+						>
+							<button
+								type="button"
+								onClick={() =>
 									navigate({
 										to: "/admin/products/$productId/edit",
 										params: { productId: String(product.id) },
-									});
+									})
 								}
-							}}
-							className="grid w-full grid-cols-[70px_1.6fr_1fr_120px_90px_120px_90px_110px_90px] gap-3 px-4 py-3 text-left text-sm transition hover:bg-muted/40"
-							role="button"
-							tabIndex={0}
-						>
-							<div className="flex items-center">
-								<span className="rounded-lg border px-2 py-1 text-xs text-muted-foreground">
-									{product.image_url ? "Sí" : "No"}
-								</span>
-							</div>
+								className="col-span-8 grid grid-cols-[70px_1.6fr_1fr_120px_90px_120px_90px_110px] gap-3 text-left"
+							>
+								<div className="flex items-center">
+									<span className="rounded-lg border px-2 py-1 text-xs text-muted-foreground">
+										{product.image_url ? "Sí" : "No"}
+									</span>
+								</div>
 
-							<div className="min-w-0">
-								<p className="truncate font-semibold">{product.name}</p>
-								<p className="truncate text-xs text-muted-foreground">
-									{product.description}
-								</p>
-							</div>
+								<div className="min-w-0">
+									<p className="truncate font-semibold">{product.name}</p>
+									<p className="truncate text-xs text-muted-foreground">
+										{product.description}
+									</p>
+								</div>
 
-							<div className="flex items-center truncate text-muted-foreground">
-								{product.category_name}
-							</div>
+								<div className="flex items-center truncate text-muted-foreground">
+									{product.category_name}
+								</div>
 
-							<div className="flex items-center font-medium tabular-nums">
-								{Number(product.price).toFixed(2)} €
-							</div>
+								<div className="flex items-center font-medium tabular-nums">
+									{Number(product.price).toFixed(2)} €
+								</div>
 
-							<div className="flex items-center tabular-nums">
-								{Number(product.tax_rate)}%
-							</div>
+								<div className="flex items-center tabular-nums">
+									{Number(product.tax_rate)}%
+								</div>
 
-							<div className="flex items-center truncate text-muted-foreground">
-								{product.warehouse}
-							</div>
+								<div className="flex items-center truncate text-muted-foreground">
+									{product.warehouse}
+								</div>
 
-							<div className="flex items-center tabular-nums">
-								{product.sort_order}
-							</div>
+								<div className="flex items-center tabular-nums">
+									{product.sort_order}
+								</div>
 
-							<div className="flex items-center">
-								<span
-									className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
-										product.is_active
-											? "bg-emerald-100 text-emerald-700"
-											: "bg-muted text-muted-foreground"
-									}`}
-								>
-									{product.is_active ? "Activo" : "Inactivo"}
-								</span>
-							</div>
+								<div className="flex items-center">
+									<span
+										className={`inline-flex rounded-full px-3 py-1 text-xs font-medium ${
+											product.is_active
+												? "bg-emerald-100 text-emerald-700"
+												: "bg-muted text-muted-foreground"
+										}`}
+									>
+										{product.is_active ? "Activo" : "Inactivo"}
+									</span>
+								</div>
+							</button>
 
 							<div className="flex items-center">
 								<button
 									type="button"
-									onClick={(event) => {
-										event.stopPropagation();
-										handleDeleteProduct(product.id);
-									}}
+									onClick={() => handleDeleteProduct(product.id)}
 									className="rounded-xl border bg-background p-2 text-red-600 transition hover:bg-red-50"
 									aria-label={`Borrar ${product.name}`}
 									title="Borrar"

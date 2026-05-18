@@ -61,11 +61,21 @@ psql "$DATABASE_URL" -f db/schema.sql
 
 Or with Node (loads `.env`):
 
+Tras un reset completo de Postgres (`docker compose down -v`), usa el bootstrap en un solo paso:
+
+```bash
+npm run db:bootstrap
+```
+
+O manualmente:
+
 ```bash
 npm run db:schema
 ```
 
 This creates app tables (`users` including `google_sub`, `sessions`, `categories`, `products`) and indexes. It is safe to re-run (uses `IF NOT EXISTS` / `ADD COLUMN IF NOT EXISTS`).
+
+**Arquitectura:** Better Auth usa la tabla `user` (identidad/sesión). La app usa `users` (perfil, roles, `google_sub` = id de Better Auth). No mezclar nombres.
 
 Optional: seed admin user (password login) for emergencies:
 

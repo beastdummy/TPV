@@ -4,21 +4,22 @@ import { useMemo, useState } from "react";
 
 import { AdminShell } from "../../components/layout/admin-shell";
 import {
-	createCategoryFn,
-	deleteCategoryFn,
-	getCategoriesFn,
-	updateCategoryFn,
-} from "../../features/admin/server-fns";
+	createCategoryForAdminFn,
+	deleteCategoryForAdminFn,
+	getCategoriesForAdminFn,
+	updateCategoryForAdminFn,
+	uploadCategoryImageFileForAdminFn,
+	uploadCategoryImageFromRemoteUrlForAdminFn,
+} from "../../features/admin/categories.server-fns";
 import type { Category } from "../../features/admin/types";
-import { requireRoleForRoute } from "../../features/auth/route-guards";
-import { CATALOG_MANAGEMENT_ROLES } from "../../features/auth/types";
+import { requireCatalogManagementTenantForRoute } from "../../features/auth/route-guards";
 
 export const Route = createFileRoute("/admin/categories")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(CATALOG_MANAGEMENT_ROLES, location.href);
+		await requireCatalogManagementTenantForRoute(location.href);
 	},
 	loader: async () => {
-		const categories = await getCategoriesFn();
+		const categories = await getCategoriesForAdminFn();
 		return { categories };
 	},
 	component: AdminCategoriesPage,
@@ -51,6 +52,10 @@ function AdminCategoriesPage() {
 		null,
 	);
 	const [isSubmitting, setIsSubmitting] = useState(false);
+	const [imageFile, setImageFile] = useState<File | null>(null);
+	const [remoteImageUrl, setRemoteImageUrl] = useState("");
+	const [isUploadingImage, setIsUploadingImage] = useState(false);
+	const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
 	const nextSortOrder = useMemo(() => {
 		if (!categories.length) return 1;
@@ -93,6 +98,9 @@ function AdminCategoriesPage() {
 			sort_order: category.sort_order,
 			is_active: category.is_active,
 		});
+		setImageFile(null);
+		setRemoteImageUrl("");
+		setImagePreviewUrl(category.image_url || null);
 		setIsModalOpen(true);
 	}
 
@@ -100,6 +108,9 @@ function AdminCategoriesPage() {
 		setIsModalOpen(false);
 		setEditingCategoryId(null);
 		setIsSubmitting(false);
+		setImageFile(null);
+		setRemoteImageUrl("");
+		setImagePreviewUrl(null);
 	}
 
 	function handleNameChange(value: string) {
@@ -120,12 +131,12 @@ function AdminCategoriesPage() {
 
 		try {
 			if (editingCategoryId) {
-				await updateCategoryFn({
+				await updateCategoryForAdminFn({
 					data: form,
 				});
 				window.alert("Categoría actualizada correctamente.");
 			} else {
-				await createCategoryFn({
+				await createCategoryForAdminFn({
 					data: form,
 				});
 				window.alert("Categoría creada correctamente.");
@@ -144,6 +155,49 @@ function AdminCategoriesPage() {
 		}
 	}
 
+	async function handleUploadCategoryImage() {
+		if (!editingCategoryId) {
+			window.alert("Guarda la categoría antes de asignar una imagen.");
+			return;
+		}
+
+		setIsUploadingImage(true);
+
+		try {
+			if (imageFile) {
+				const formData = new FormData();
+				formData.append("categoryId", editingCategoryId);
+				formData.append("file", imageFile);
+				const result = await uploadCategoryImageFileForAdminFn({
+					data: formData,
+				});
+				setImagePreviewUrl(result.image_url);
+				setImageFile(null);
+			} else if (remoteImageUrl.trim()) {
+				const result = await uploadCategoryImageFromRemoteUrlForAdminFn({
+					data: {
+						categoryId: editingCategoryId,
+						remoteUrl: remoteImageUrl.trim(),
+					},
+				});
+				setImagePreviewUrl(result.image_url);
+				setRemoteImageUrl("");
+			} else {
+				window.alert("Selecciona un archivo o indica una URL remota.");
+				return;
+			}
+
+			await router.invalidate();
+			window.alert("Imagen de categoría actualizada.");
+		} catch (error) {
+			const message =
+				error instanceof Error ? error.message : "No se pudo subir la imagen.";
+			window.alert(message);
+		} finally {
+			setIsUploadingImage(false);
+		}
+	}
+
 	async function handleDeleteCategory(categoryId: string) {
 		const confirmed = window.confirm(
 			"¿Seguro que quieres borrar esta categoría? Solo se borrará si está vacía de productos.",
@@ -152,7 +206,7 @@ function AdminCategoriesPage() {
 		if (!confirmed) return;
 
 		try {
-			await deleteCategoryFn({
+			await deleteCategoryForAdminFn({
 				data: { id: categoryId },
 			});
 
@@ -184,7 +238,8 @@ function AdminCategoriesPage() {
 				}
 			>
 				<div className="overflow-hidden rounded-3xl border bg-background">
-					<div className="grid grid-cols-[1.2fr_2fr_120px_120px_120px] gap-4 border-b px-5 py-4 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+					<div className="grid grid-cols-[72px_1.2fr_2fr_120px_120px_120px] gap-4 border-b px-5 py-4 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+						<span>Imagen</span>
 						<span>Nombre</span>
 						<span>Descripción</span>
 						<span>Orden</span>
@@ -196,8 +251,22 @@ function AdminCategoriesPage() {
 						{categories.map((category: Category) => (
 							<div
 								key={category.id}
-								className="grid grid-cols-[1.2fr_2fr_120px_120px_120px] gap-4 px-5 py-4 text-sm"
+								className="grid grid-cols-[72px_1.2fr_2fr_120px_120px_120px] gap-4 px-5 py-4 text-sm"
 							>
+								<div className="flex items-center">
+									{category.image_url ? (
+										<img
+											src={category.image_url}
+											alt={category.name}
+											className="h-12 w-12 rounded-xl border object-cover"
+										/>
+									) : (
+										<div className="flex h-12 w-12 items-center justify-center rounded-xl border bg-muted text-[10px] text-muted-foreground">
+											Sin img
+										</div>
+									)}
+								</div>
+
 								<div>
 									<p className="font-semibold">{category.name}</p>
 									<p className="mt-1 text-xs text-muted-foreground">
@@ -339,6 +408,72 @@ function AdminCategoriesPage() {
 									className="w-full rounded-2xl border bg-background px-4 py-3 text-sm outline-none transition focus:border-primary"
 								/>
 							</div>
+
+							{editingCategoryId ? (
+								<div className="space-y-4 rounded-2xl border bg-muted/20 p-4">
+									<p className="text-sm font-medium">Imagen de familia</p>
+									<div className="flex flex-wrap items-start gap-4">
+										<div className="h-24 w-24 overflow-hidden rounded-2xl border bg-background">
+											{imagePreviewUrl ? (
+												<img
+													src={imagePreviewUrl}
+													alt="Vista previa"
+													className="h-full w-full object-cover"
+												/>
+											) : (
+												<div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+													Sin imagen
+												</div>
+											)}
+										</div>
+										<div className="min-w-0 flex-1 space-y-3">
+											<div className="space-y-2">
+												<label
+													htmlFor="category-image-file"
+													className="text-sm font-medium"
+												>
+													Subir archivo
+												</label>
+												<input
+													id="category-image-file"
+													type="file"
+													accept="image/*"
+													onChange={(e) =>
+														setImageFile(e.target.files?.[0] ?? null)
+													}
+													className="block w-full text-sm"
+												/>
+											</div>
+											<div className="space-y-2">
+												<label
+													htmlFor="category-image-url"
+													className="text-sm font-medium"
+												>
+													URL remota (opcional)
+												</label>
+												<input
+													id="category-image-url"
+													type="url"
+													value={remoteImageUrl}
+													onChange={(e) => setRemoteImageUrl(e.target.value)}
+													placeholder="https://..."
+													className="w-full rounded-2xl border bg-background px-4 py-3 text-sm outline-none transition focus:border-primary"
+												/>
+											</div>
+											<button
+												type="button"
+												onClick={handleUploadCategoryImage}
+												disabled={isUploadingImage}
+												className="rounded-2xl border bg-background px-4 py-2 text-sm font-medium transition hover:bg-muted disabled:opacity-60"
+											>
+												{isUploadingImage
+													? "Procesando imagen..."
+													: "Guardar imagen"}
+											</button>
+										</div>
+									</div>
+								</div>
+							) : null}
 
 							<div className="grid gap-5 md:grid-cols-2">
 								<div className="space-y-2">

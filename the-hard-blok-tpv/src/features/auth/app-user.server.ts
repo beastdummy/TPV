@@ -23,6 +23,19 @@ function resolveDefaultRoleForNewUser(): Role {
 	return "cashier";
 }
 
+function toSessionUser(
+	user: Pick<AuthUser, "id" | "role">,
+	email: string,
+	name: string,
+): Pick<AuthUser, "id" | "email" | "name" | "role"> {
+	return {
+		id: user.id,
+		email,
+		name,
+		role: user.role,
+	};
+}
+
 export async function syncAppUserFromBetterAuthSession(params: {
 	userId: string;
 	email: string;
@@ -56,12 +69,7 @@ export async function syncAppUserFromBetterAuthSession(params: {
 			[user.id, email, params.name],
 		);
 
-		return {
-			id: user.id,
-			email,
-			name: params.name,
-			role: user.role,
-		};
+		return toSessionUser(user, email, params.name);
 	}
 
 	const existingByEmail = await db.query<AuthUser>(
@@ -89,12 +97,7 @@ export async function syncAppUserFromBetterAuthSession(params: {
 			[user.id, googleSub, params.name],
 		);
 
-		return {
-			id: user.id,
-			email,
-			name: params.name,
-			role: user.role,
-		};
+		return toSessionUser(user, email, params.name);
 	}
 
 	const role = resolveDefaultRoleForNewUser();
@@ -116,10 +119,5 @@ export async function syncAppUserFromBetterAuthSession(params: {
 		throw new Error("No se pudo crear el usuario en la base de datos.");
 	}
 
-	return {
-		id,
-		email,
-		name: params.name,
-		role,
-	};
+	return toSessionUser({ id, role }, email, params.name);
 }

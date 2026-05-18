@@ -1,24 +1,23 @@
-import { Link, createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { ArrowRight, PlusCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { AdminShell } from "../../components/layout/admin-shell";
-import { requireRoleForRoute } from "../../features/auth/route-guards";
-import { CATALOG_MANAGEMENT_ROLES } from "../../features/auth/types";
 import {
-	createWarehouseFn,
-	getInventoryItemsFn,
-	getWarehousesFn,
-} from "../../features/inventory/server-fns";
+	createWarehouseForAdminFn,
+	getWarehousesForAdminFn,
+} from "../../features/admin/warehouses.server-fns";
+import { requireCatalogManagementTenantForRoute } from "../../features/auth/route-guards";
+import { getInventoryItemsFn } from "../../features/inventory/server-fns";
 import type { Warehouse } from "../../features/inventory/types";
 
 export const Route = createFileRoute("/admin/warehouses")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(CATALOG_MANAGEMENT_ROLES, location.href);
+		await requireCatalogManagementTenantForRoute(location.href);
 	},
 	loader: async () => {
 		const [warehouses, inventoryItems] = await Promise.all([
-			getWarehousesFn(),
+			getWarehousesForAdminFn(),
 			getInventoryItemsFn(),
 		]);
 
@@ -84,7 +83,7 @@ function AdminWarehousesPage() {
 
 		try {
 			setIsCreatingWarehouse(true);
-			await createWarehouseFn({
+			await createWarehouseForAdminFn({
 				data: {
 					id: normalizedId,
 					name: normalizedName,
@@ -136,16 +135,24 @@ function AdminWarehousesPage() {
 					<div className="mt-6 rounded-2xl border bg-card p-4">
 						<h3 className="text-sm font-semibold">Operativa de stock</h3>
 						<p className="mt-2 text-sm text-muted-foreground">
-							La gestión de stock, lotes, series y caducidad está centralizada en
-							la página de inventario.
+							La gestión de stock, lotes, series y caducidad está centralizada
+							en la página de inventario.
 						</p>
-						<Link
-							to="/admin/inventory"
-							className="mt-3 inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition hover:bg-muted"
-						>
-							Ir a inventario
-							<ArrowRight className="h-4 w-4" />
-						</Link>
+						<div className="mt-3 flex flex-wrap gap-2">
+							<Link
+								to="/admin/inventory"
+								className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition hover:bg-muted"
+							>
+								Ir a inventario
+								<ArrowRight className="h-4 w-4" />
+							</Link>
+							<Link
+								to="/admin/replenishment"
+								className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition hover:bg-muted"
+							>
+								Listado de reposición
+							</Link>
+						</div>
 					</div>
 				</section>
 

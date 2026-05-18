@@ -1,7 +1,7 @@
 import type { PoolClient } from "pg";
 
 import { db } from "../../lib/db.server";
-import type { StockMovementType } from "../inventory/types";
+import type { StockMovementType } from "../inventory/stock-movement-types";
 import type { PurchaseReceiptListItem, Supplier } from "./types";
 
 export async function getSuppliers() {
@@ -62,6 +62,7 @@ async function createStockMovementInTransaction(
 		movement_type: StockMovementType;
 		quantity: number;
 		reason: string;
+		reason_code?: string | null;
 		performed_by_user_id: string;
 	},
 ) {
@@ -98,17 +99,20 @@ async function createStockMovementInTransaction(
       previous_quantity,
       new_quantity,
       reason,
+      reason_code,
       performed_by_user_id
     )
-    VALUES ($1, $2, 'in', $3, $4, $5, $6, $7)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
   `,
 		[
 			data.product_id,
 			data.warehouse_id,
+			data.movement_type,
 			data.quantity,
 			previousQuantity,
 			newQuantity,
 			data.reason,
+			data.reason_code ?? null,
 			data.performed_by_user_id,
 		],
 	);
@@ -122,6 +126,8 @@ export async function createPurchaseReceipt(data: {
 	unit_cost: number;
 	notes: string;
 	created_by_user_id: string;
+	movement_type?: StockMovementType;
+	reason_code?: string | null;
 }) {
 	const client = await db.connect();
 
@@ -168,9 +174,10 @@ export async function createPurchaseReceipt(data: {
 		await createStockMovementInTransaction(client, {
 			product_id: data.product_id,
 			warehouse_id: data.warehouse_id,
-			movement_type: "in",
+			movement_type: data.movement_type ?? "purchase",
 			quantity: data.quantity,
-			reason: `Compra proveedor (albarán ${receiptId})`,
+			reason: data.notes.trim() || `Compra proveedor (albarán ${receiptId})`,
+			reason_code: data.reason_code ?? "purchase",
 			performed_by_user_id: data.created_by_user_id,
 		});
 

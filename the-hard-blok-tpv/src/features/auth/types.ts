@@ -1,3 +1,7 @@
+/**
+ * Roles legacy en users / business_members (tenant).
+ * Sustituibles por business_roles personalizados; "owner" sigue siendo fijo.
+ */
 export const ROLE_VALUES = ["owner", "admin", "manager", "cashier"] as const;
 
 export type Role = (typeof ROLE_VALUES)[number];

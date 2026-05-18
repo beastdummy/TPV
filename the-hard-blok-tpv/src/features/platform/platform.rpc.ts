@@ -1,0 +1,24 @@
+import { createServerFn } from "@tanstack/react-start";
+
+import type { PlatformDashboardData } from "./types";
+
+export const ensurePlatformAdminFn = createServerFn({ method: "GET" }).handler(
+	async () => {
+		const { requirePlatformAdmin } = await import("./platform-guards.server");
+		return await requirePlatformAdmin();
+	},
+);
+
+export const getPlatformDashboardFn = createServerFn({ method: "GET" }).handler(
+	async (): Promise<PlatformDashboardData> => {
+		const { requirePlatformPermission } = await import(
+			"./platform-guards.server"
+		);
+		await requirePlatformPermission("platform.dashboard.view");
+
+		const { getPlatformDashboardData } = await import(
+			"./platform-dashboard-queries.server"
+		);
+		return await getPlatformDashboardData();
+	},
+);

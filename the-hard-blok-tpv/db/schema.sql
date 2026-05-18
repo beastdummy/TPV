@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS categories (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT NOT NULL DEFAULT '',
+  image_url TEXT NOT NULL DEFAULT '',
   sort_order INTEGER NOT NULL DEFAULT 0,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -124,9 +125,11 @@ WHERE TRIM(COALESCE(p.warehouse, '')) <> ''
 ON CONFLICT (id) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS product_stock (
-  product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE CASCADE,
   quantity NUMERIC(14, 3) NOT NULL DEFAULT 0,
+  minimum_quantity NUMERIC(14, 3) NOT NULL DEFAULT 0,
+  reorder_quantity NUMERIC(14, 3) NOT NULL DEFAULT 0,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (product_id, warehouse_id)
 );
@@ -139,24 +142,37 @@ ON product_stock (product_id);
 
 CREATE TABLE IF NOT EXISTS stock_movements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
   warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
   movement_type TEXT NOT NULL,
   quantity NUMERIC(14, 3) NOT NULL,
   previous_quantity NUMERIC(14, 3) NOT NULL,
   new_quantity NUMERIC(14, 3) NOT NULL,
   reason TEXT NOT NULL DEFAULT '',
+  reason_code TEXT,
+  note TEXT,
+  correlation_id UUID,
   performed_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT stock_movements_type_check
-    CHECK (movement_type IN ('in', 'out', 'adjustment')),
+    CHECK (movement_type IN (
+      'in',
+      'out',
+      'sale',
+      'transfer_in',
+      'transfer_out',
+      'adjustment_in',
+      'adjustment_out',
+      'adjustment_set',
+      'purchase',
+      'adjustment'
+    )),
   CONSTRAINT stock_movements_qty_check
-    CHECK (quantity >= 0),
-  CONSTRAINT stock_movements_prev_qty_check
-    CHECK (previous_quantity >= 0),
-  CONSTRAINT stock_movements_new_qty_check
-    CHECK (new_quantity >= 0)
+    CHECK (quantity >= 0)
 );
+
+-- pos_terminal_settings: ver db/migrations/016_inventory_hospitality.sql
+-- (requiere businesses, creada en db:migrate:tenancy)
 
 CREATE INDEX IF NOT EXISTS stock_movements_warehouse_idx
 ON stock_movements (warehouse_id, created_at DESC);
@@ -166,7 +182,7 @@ ON stock_movements (product_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS inventory_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
   warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
   lot_code TEXT NOT NULL DEFAULT '',
   serial_number TEXT NOT NULL DEFAULT '',
@@ -186,7 +202,7 @@ ON inventory_items (expiry_date);
 CREATE TABLE IF NOT EXISTS inventory_item_movements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   inventory_item_id UUID NOT NULL REFERENCES inventory_items(id) ON DELETE RESTRICT,
-  product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
   warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE RESTRICT,
   movement_type TEXT NOT NULL,
   quantity NUMERIC(14, 3) NOT NULL,
@@ -241,7 +257,7 @@ ON purchase_receipts (warehouse_id, created_at DESC);
 CREATE TABLE IF NOT EXISTS purchase_receipt_items (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   receipt_id UUID NOT NULL REFERENCES purchase_receipts(id) ON DELETE CASCADE,
-  product_id TEXT NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
+  product_id UUID NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
   quantity NUMERIC(14, 3) NOT NULL,
   unit_cost NUMERIC(12, 3) NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

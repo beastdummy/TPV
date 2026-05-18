@@ -13,8 +13,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AppShell } from "../components/layout/app-shell";
 import { getAppUserFn } from "../features/auth/auth.rpc";
-import { requireRoleForRoute } from "../features/auth/route-guards";
+import {
+	requireDashboardPageForRoute,
+	requireRoleForRoute,
+} from "../features/auth/route-guards";
 import type { Role } from "../features/auth/types";
+import { getBusinessSetupStateFn } from "../features/business-setup/setup.rpc";
+import type { BusinessSetupState } from "../features/business-setup/types";
+import { SETUP_STEPS } from "../features/business-setup/types";
 import {
 	DASHBOARD_RANGE_LABELS,
 	DASHBOARD_RANGE_VALUES,
@@ -28,12 +34,17 @@ const DASHBOARD_ROLES: Role[] = ["owner", "manager"];
 
 export const Route = createFileRoute("/dashboard")({
 	beforeLoad: async ({ location }) => {
+		await requireDashboardPageForRoute(location.href);
 		await requireRoleForRoute(DASHBOARD_ROLES, location.href);
 	},
 	loader: async () => {
-		const user = await getAppUserFn();
+		const [user, setup] = await Promise.all([
+			getAppUserFn(),
+			getBusinessSetupStateFn(),
+		]);
 		return {
 			userName: user?.name ?? "Usuario",
+			setup,
 		};
 	},
 	component: DashboardPage,
@@ -92,7 +103,7 @@ function setRangeInUrl(range: DashboardRange) {
 }
 
 function DashboardPage() {
-	const { userName } = Route.useLoaderData();
+	const { userName, setup } = Route.useLoaderData();
 	const [range, setRange] = useState<DashboardRange>(() => getRangeFromUrl());
 	const [data, setData] = useState<DashboardData | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
@@ -151,6 +162,14 @@ function DashboardPage() {
 	const periodLabel = formatPeriodLabel(range);
 	const totals = data?.totals;
 	const hasData = Boolean(data && data.totals.orders > 0);
+
+	if (setup && !setup.setupCompleted) {
+		return (
+			<AppShell title="Dashboard">
+				<SetupIncompletePanel userName={userName} setup={setup} />
+			</AppShell>
+		);
+	}
 
 	return (
 		<AppShell title="Dashboard">
@@ -635,6 +654,68 @@ function LoadingSkeleton() {
 					className="h-28 animate-pulse rounded-3xl border bg-muted/40"
 				/>
 			))}
+		</div>
+	);
+}
+
+const SETUP_STEP_LABELS: Record<string, string> = {
+	confirm_business: "Datos del negocio",
+	warehouse: "Almacén",
+	category: "Categoría",
+	product: "Producto",
+	initial_stock: "Stock inicial",
+	review_inventory: "Inventario",
+	configure_cash: "Caja",
+	open_cash: "Abrir caja",
+	complete: "Listo",
+};
+
+function SetupIncompletePanel({
+	userName,
+	setup,
+}: {
+	userName: string;
+	setup: BusinessSetupState;
+}) {
+	const totalSteps = SETUP_STEPS.filter((s) => s !== "complete").length;
+	const doneCount = setup.completedSteps.filter((s) => s !== "complete").length;
+	const progress = Math.round((doneCount / totalSteps) * 100);
+
+	return (
+		<div className="flex flex-col gap-6">
+			<div className="rounded-3xl border bg-card p-6">
+				<p className="text-sm text-muted-foreground">Hola, {userName}</p>
+				<h2 className="mt-1 text-2xl font-semibold">
+					Termina la configuración de tu TPV
+				</h2>
+				<p className="mt-2 max-w-xl text-sm text-muted-foreground">
+					Completa los pasos para desbloquear ventas, inventario y el resto de
+					módulos. Las métricas del dashboard aparecerán cuando empieces a
+					vender.
+				</p>
+				<div className="mt-6">
+					<div className="mb-2 flex justify-between text-sm">
+						<span>Progreso</span>
+						<span className="font-medium">{progress}%</span>
+					</div>
+					<div className="h-2 overflow-hidden rounded-full bg-muted">
+						<div
+							className="h-full rounded-full bg-primary transition-all"
+							style={{ width: `${progress}%` }}
+						/>
+					</div>
+					<p className="mt-2 text-xs text-muted-foreground">
+						Siguiente paso:{" "}
+						{SETUP_STEP_LABELS[setup.currentStep] ?? setup.currentStep}
+					</p>
+				</div>
+				<Link
+					to="/setup"
+					className="mt-6 inline-flex rounded-2xl border border-primary bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground"
+				>
+					Continuar configuración
+				</Link>
+			</div>
 		</div>
 	);
 }

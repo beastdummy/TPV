@@ -1,7 +1,13 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { getAppUserFn, getOAuthSetupFn } from "../features/auth/auth.rpc";
+import {
+	getOAuthSetupFn,
+	getSessionRedirectContextFn,
+	signInDevOwnerFn,
+} from "../features/auth/auth.rpc";
+import { resolvePostLoginRedirect } from "../features/auth/post-login-redirect";
+import { redirectAuthenticatedFromAuthPages } from "../features/auth/route-guards";
 import { authClient } from "../lib/auth-client";
 
 type LoginSearch = {
@@ -13,10 +19,7 @@ export const Route = createFileRoute("/login")({
 		redirect: typeof search.redirect === "string" ? search.redirect : undefined,
 	}),
 	beforeLoad: async () => {
-		const user = await getAppUserFn();
-		if (user) {
-			throw redirect({ to: "/dashboard" });
-		}
+		await redirectAuthenticatedFromAuthPages();
 	},
 	loader: async () => {
 		return await getOAuthSetupFn();
@@ -31,6 +34,33 @@ function LoginPage() {
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+	async function resolvePostLoginPath() {
+		if (search.redirect?.startsWith("/")) {
+			return search.redirect;
+		}
+		const sessionCtx = await getSessionRedirectContextFn();
+		return resolvePostLoginRedirect(sessionCtx);
+	}
+
+	async function handleDevOwnerSignIn() {
+		setErrorMessage(null);
+		setIsSubmitting(true);
+
+		try {
+			const result = await signInDevOwnerFn();
+			window.location.assign(
+				result.redirectTo ?? (await resolvePostLoginPath()),
+			);
+		} catch (error) {
+			setErrorMessage(
+				error instanceof Error
+					? error.message
+					: "No se pudo iniciar sesión de desarrollo.",
+			);
+			setIsSubmitting(false);
+		}
+	}
+
 	async function handleGoogleSignIn() {
 		if (!oauth.google) {
 			return;
@@ -41,9 +71,7 @@ function LoginPage() {
 		try {
 			await authClient.signIn.social({
 				provider: "google",
-				callbackURL: search.redirect?.startsWith("/")
-					? search.redirect
-					: "/dashboard",
+				callbackURL: await resolvePostLoginPath(),
 			});
 		} catch (error) {
 			setErrorMessage(
@@ -103,9 +131,27 @@ function LoginPage() {
 						{isSubmitting ? "Redirigiendo..." : "Continuar con Google"}
 					</button>
 
+					{oauth.devLogin ? (
+						<button
+							type="button"
+							onClick={handleDevOwnerSignIn}
+							disabled={isSubmitting}
+							className="inline-flex w-full items-center justify-center rounded-2xl border border-dashed border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-950 transition hover:bg-amber-100 disabled:opacity-60"
+						>
+							{isSubmitting ? "Entrando..." : "Entrar como Platform Dev"}
+						</button>
+					) : null}
+
+					<Link
+						to="/register"
+						className="inline-flex w-full items-center justify-center rounded-2xl border bg-background px-4 py-3 text-sm font-medium transition hover:bg-muted"
+					>
+						Crear cuenta nueva
+					</Link>
+
 					<Link
 						to="/"
-						className="inline-flex w-full items-center justify-center rounded-2xl border bg-background px-4 py-3 text-sm font-medium transition hover:bg-muted"
+						className="inline-flex w-full items-center justify-center rounded-2xl border border-transparent px-4 py-2 text-sm text-muted-foreground transition hover:text-foreground"
 					>
 						Volver
 					</Link>

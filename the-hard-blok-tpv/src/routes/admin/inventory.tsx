@@ -1,41 +1,65 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { Download, Mail, Printer, Sheet } from "lucide-react";
 import { useMemo, useState } from "react";
 import * as XLSX from "xlsx";
 
 import { AdminShell } from "../../components/layout/admin-shell";
-import { getProductsFn } from "../../features/admin/server-fns";
-import { requireRoleForRoute } from "../../features/auth/route-guards";
-import { CATALOG_MANAGEMENT_ROLES } from "../../features/auth/types";
 import {
-	createInventoryMovementDetailedFn,
-	getInventoryItemsFn,
-	getWarehousesFn,
-} from "../../features/inventory/server-fns";
-import { STOCK_MOVEMENT_TYPES, type StockMovementType } from "../../features/inventory/types";
+	adjustStockForAdminFn,
+	createInventoryMovementDetailedForAdminFn,
+	getInventoryPageForAdminFn,
+	transferStockBetweenWarehousesForAdminFn,
+} from "../../features/admin/inventory.server-fns";
+import { requireCatalogManagementTenantForRoute } from "../../features/auth/route-guards";
+import {
+	STOCK_ADJUSTMENT_REASON_CODES,
+	type StockAdjustmentReasonCode,
+} from "../../features/inventory/stock-movement-types";
+import {
+	LEGACY_STOCK_MOVEMENT_TYPES,
+	type LegacyStockMovementType,
+} from "../../features/inventory/types";
 
 export const Route = createFileRoute("/admin/inventory")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(CATALOG_MANAGEMENT_ROLES, location.href);
+		await requireCatalogManagementTenantForRoute(location.href);
 	},
 	loader: async () => {
-		const [warehouses, products, inventoryRows] = await Promise.all([
-			getWarehousesFn(),
-			getProductsFn(),
-			getInventoryItemsFn(),
-		]);
-		return { warehouses, products, inventoryRows };
+		return await getInventoryPageForAdminFn();
 	},
 	component: AdminInventoryPage,
 });
 
 function AdminInventoryPage() {
 	const router = useRouter();
-	const { warehouses, products, inventoryRows } = Route.useLoaderData();
+	const { warehouses, products, inventoryRows, stockRows, stockMovements } =
+		Route.useLoaderData();
 
-	const [warehouseId, setWarehouseId] = useState<string>(warehouses[0]?.id ?? "");
+	const [warehouseId, setWarehouseId] = useState<string>(
+		warehouses[0]?.id ?? "",
+	);
 	const [productId, setProductId] = useState<string>(products[0]?.id ?? "");
-	const [movementType, setMovementType] = useState<StockMovementType>("in");
+	const [movementType, setMovementType] =
+		useState<LegacyStockMovementType>("in");
+	const [transferFromId, setTransferFromId] = useState(warehouses[0]?.id ?? "");
+	const [transferToId, setTransferToId] = useState(warehouses[1]?.id ?? "");
+	const [transferProductId, setTransferProductId] = useState(
+		products[0]?.id ?? "",
+	);
+	const [transferQty, setTransferQty] = useState("1");
+	const [transferReason, setTransferReason] = useState("");
+	const [adjustProductId, setAdjustProductId] = useState(products[0]?.id ?? "");
+	const [adjustWarehouseId, setAdjustWarehouseId] = useState(
+		warehouses[0]?.id ?? "",
+	);
+	const [adjustType, setAdjustType] = useState<"increase" | "decrease" | "set">(
+		"decrease",
+	);
+	const [adjustQty, setAdjustQty] = useState("1");
+	const [adjustReasonCode, setAdjustReasonCode] =
+		useState<StockAdjustmentReasonCode>("breakage");
+	const [adjustNote, setAdjustNote] = useState("");
+	const [confirmNegative, setConfirmNegative] = useState(false);
 	const [quantity, setQuantity] = useState("1");
 	const [lotCode, setLotCode] = useState("");
 	const [serialNumber, setSerialNumber] = useState("");
@@ -51,9 +75,11 @@ function AdminInventoryPage() {
 
 	const filteredInventoryRows = useMemo(() => {
 		const threshold = Number.parseFloat(lowStockThreshold);
-		const validThreshold = Number.isFinite(threshold) && threshold >= 0 ? threshold : 0;
+		const validThreshold =
+			Number.isFinite(threshold) && threshold >= 0 ? threshold : 0;
 		const withinDays = Number.parseInt(expiryWithinDays, 10);
-		const validWithinDays = Number.isFinite(withinDays) && withinDays >= 0 ? withinDays : 0;
+		const validWithinDays =
+			Number.isFinite(withinDays) && withinDays >= 0 ? withinDays : 0;
 		const today = new Date();
 		const limitDate = new Date(today);
 		limitDate.setDate(today.getDate() + validWithinDays);
@@ -107,7 +133,7 @@ function AdminInventoryPage() {
 
 		try {
 			setIsSubmitting(true);
-			await createInventoryMovementDetailedFn({
+			await createInventoryMovementDetailedForAdminFn({
 				data: {
 					product_id: productId,
 					warehouse_id: warehouseId,
@@ -155,9 +181,7 @@ function AdminInventoryPage() {
 
 		const csv = [headers, ...rows]
 			.map((line) =>
-				line
-					.map((cell) => `"${String(cell).replaceAll('"', '""')}"`)
-					.join(","),
+				line.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(","),
 			)
 			.join("\n");
 
@@ -189,7 +213,10 @@ function AdminInventoryPage() {
 
 	function sendInventoryEmailSummary() {
 		const totalRows = filteredInventoryRows.length;
-		const totalStock = filteredInventoryRows.reduce((acc, row) => acc + row.qty_on_hand, 0);
+		const totalStock = filteredInventoryRows.reduce(
+			(acc, row) => acc + row.qty_on_hand,
+			0,
+		);
 		const body = [
 			"Resumen de inventario",
 			"",
@@ -250,8 +277,12 @@ function AdminInventoryPage() {
 			}
 		>
 			<section className="rounded-3xl border bg-background p-5">
-				<h2 className="text-lg font-semibold">Registrar movimiento detallado</h2>
-				{feedback ? <p className="mt-2 text-xs text-emerald-700">{feedback}</p> : null}
+				<h2 className="text-lg font-semibold">
+					Registrar movimiento detallado
+				</h2>
+				{feedback ? (
+					<p className="mt-2 text-xs text-emerald-700">{feedback}</p>
+				) : null}
 				<div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
 					<select
 						value={warehouseId}
@@ -282,13 +313,17 @@ function AdminInventoryPage() {
 					<select
 						value={movementType}
 						onChange={(event) =>
-							setMovementType(event.target.value as StockMovementType)
+							setMovementType(event.target.value as LegacyStockMovementType)
 						}
 						className="rounded-xl border bg-card px-3 py-2 text-sm"
 					>
-						{STOCK_MOVEMENT_TYPES.map((type) => (
+						{LEGACY_STOCK_MOVEMENT_TYPES.map((type) => (
 							<option key={type} value={type}>
-								{type === "in" ? "Entrada" : type === "out" ? "Salida" : "Ajuste"}
+								{type === "in"
+									? "Entrada"
+									: type === "out"
+										? "Salida"
+										: "Ajuste"}
 							</option>
 						))}
 					</select>
@@ -412,12 +447,283 @@ function AdminInventoryPage() {
 							className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_120px] gap-3 px-4 py-3 text-sm"
 						>
 							<span className="truncate font-medium">{row.product_name}</span>
-							<span className="truncate text-muted-foreground">{row.category_name}</span>
-							<span className="truncate text-muted-foreground">{row.warehouse_name}</span>
+							<span className="truncate text-muted-foreground">
+								{row.category_name}
+							</span>
+							<span className="truncate text-muted-foreground">
+								{row.warehouse_name}
+							</span>
 							<span className="truncate">{row.lot_code || "-"}</span>
 							<span className="truncate">{row.serial_number || "-"}</span>
 							<span className="truncate">{row.expiry_date ?? "-"}</span>
 							<span className="tabular-nums">{row.qty_on_hand}</span>
+						</div>
+					))}
+				</div>
+			</section>
+
+			<section className="mt-6 rounded-3xl border bg-background p-5">
+				<div className="flex flex-wrap items-center justify-between gap-2">
+					<h2 className="text-lg font-semibold">Stock por almacén</h2>
+					<Link
+						to="/admin/replenishment"
+						className="text-sm text-primary underline"
+					>
+						Listado de reposición
+					</Link>
+				</div>
+				<div className="mt-3 divide-y">
+					{stockRows.slice(0, 40).map((row) => (
+						<div
+							key={`${row.product_id}:${row.warehouse_id}`}
+							className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"
+						>
+							<span>
+								{row.product_name} · {row.warehouse_name}
+							</span>
+							<span
+								className={`font-medium tabular-nums ${
+									row.quantity < 0 ? "text-red-600" : ""
+								}`}
+							>
+								{row.quantity}
+								{row.quantity < 0 || row.quantity < row.minimum_quantity ? (
+									<span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs text-red-800">
+										Necesita reposición
+									</span>
+								) : null}
+							</span>
+						</div>
+					))}
+				</div>
+			</section>
+
+			<section className="mt-6 rounded-3xl border bg-background p-5">
+				<h2 className="text-lg font-semibold">Transferir entre almacenes</h2>
+				<p className="mt-1 text-xs text-muted-foreground">
+					Motivo obligatorio. El origen puede quedar en negativo.
+				</p>
+				<div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+					<select
+						value={transferProductId}
+						onChange={(event) => setTransferProductId(event.target.value)}
+						className="rounded-xl border bg-card px-3 py-2 text-sm"
+					>
+						{products.map((product) => (
+							<option key={product.id} value={product.id}>
+								{product.name}
+							</option>
+						))}
+					</select>
+					<select
+						value={transferFromId}
+						onChange={(event) => setTransferFromId(event.target.value)}
+						className="rounded-xl border bg-card px-3 py-2 text-sm"
+					>
+						{warehouses.map((warehouse) => (
+							<option key={warehouse.id} value={warehouse.id}>
+								Origen: {warehouse.name}
+							</option>
+						))}
+					</select>
+					<select
+						value={transferToId}
+						onChange={(event) => setTransferToId(event.target.value)}
+						className="rounded-xl border bg-card px-3 py-2 text-sm"
+					>
+						{warehouses.map((warehouse) => (
+							<option key={warehouse.id} value={warehouse.id}>
+								Destino: {warehouse.name}
+							</option>
+						))}
+					</select>
+					<input
+						type="number"
+						min="0.001"
+						step="0.001"
+						value={transferQty}
+						onChange={(event) => setTransferQty(event.target.value)}
+						className="rounded-xl border bg-card px-3 py-2 text-sm"
+						placeholder="Cantidad"
+					/>
+					<input
+						type="text"
+						value={transferReason}
+						onChange={(event) => setTransferReason(event.target.value)}
+						className="rounded-xl border bg-card px-3 py-2 text-sm md:col-span-2"
+						placeholder="Motivo obligatorio"
+					/>
+				</div>
+				<button
+					type="button"
+					disabled={isSubmitting}
+					onClick={async () => {
+						const quantity = Number.parseFloat(transferQty);
+						if (!transferReason.trim()) {
+							window.alert("El motivo es obligatorio.");
+							return;
+						}
+						try {
+							setIsSubmitting(true);
+							await transferStockBetweenWarehousesForAdminFn({
+								data: {
+									product_id: transferProductId,
+									from_warehouse_id: transferFromId,
+									to_warehouse_id: transferToId,
+									quantity,
+									reason_code: transferReason.trim(),
+								},
+							});
+							setFeedback("Transferencia registrada.");
+							await router.invalidate();
+						} catch (error) {
+							window.alert(
+								error instanceof Error
+									? error.message
+									: "No se pudo transferir.",
+							);
+						} finally {
+							setIsSubmitting(false);
+						}
+					}}
+					className="mt-3 rounded-xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+				>
+					Transferir
+				</button>
+			</section>
+
+			<section className="mt-6 rounded-3xl border bg-background p-5">
+				<h2 className="text-lg font-semibold">Ajustar stock</h2>
+				<div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+					<select
+						value={adjustProductId}
+						onChange={(event) => setAdjustProductId(event.target.value)}
+						className="rounded-xl border bg-card px-3 py-2 text-sm"
+					>
+						{products.map((product) => (
+							<option key={product.id} value={product.id}>
+								{product.name}
+							</option>
+						))}
+					</select>
+					<select
+						value={adjustWarehouseId}
+						onChange={(event) => setAdjustWarehouseId(event.target.value)}
+						className="rounded-xl border bg-card px-3 py-2 text-sm"
+					>
+						{warehouses.map((warehouse) => (
+							<option key={warehouse.id} value={warehouse.id}>
+								{warehouse.name}
+							</option>
+						))}
+					</select>
+					<select
+						value={adjustType}
+						onChange={(event) =>
+							setAdjustType(
+								event.target.value as "increase" | "decrease" | "set",
+							)
+						}
+						className="rounded-xl border bg-card px-3 py-2 text-sm"
+					>
+						<option value="increase">Aumentar</option>
+						<option value="decrease">Disminuir</option>
+						<option value="set">Fijar cantidad</option>
+					</select>
+					<input
+						type="number"
+						step="0.001"
+						value={adjustQty}
+						onChange={(event) => setAdjustQty(event.target.value)}
+						className="rounded-xl border bg-card px-3 py-2 text-sm"
+					/>
+					<select
+						value={adjustReasonCode}
+						onChange={(event) =>
+							setAdjustReasonCode(
+								event.target.value as StockAdjustmentReasonCode,
+							)
+						}
+						className="rounded-xl border bg-card px-3 py-2 text-sm"
+					>
+						{STOCK_ADJUSTMENT_REASON_CODES.map((code) => (
+							<option key={code} value={code}>
+								{code}
+							</option>
+						))}
+					</select>
+					<input
+						type="text"
+						value={adjustNote}
+						onChange={(event) => setAdjustNote(event.target.value)}
+						className="rounded-xl border bg-card px-3 py-2 text-sm md:col-span-2"
+						placeholder="Nota (obligatoria si motivo = other)"
+					/>
+					{adjustType === "set" ? (
+						<label className="inline-flex items-center gap-2 text-sm">
+							<input
+								type="checkbox"
+								checked={confirmNegative}
+								onChange={(event) => setConfirmNegative(event.target.checked)}
+							/>
+							Confirmar stock negativo
+						</label>
+					) : null}
+				</div>
+				<button
+					type="button"
+					disabled={isSubmitting}
+					onClick={async () => {
+						try {
+							setIsSubmitting(true);
+							await adjustStockForAdminFn({
+								data: {
+									product_id: adjustProductId,
+									warehouse_id: adjustWarehouseId,
+									adjustment_type: adjustType,
+									quantity: Number.parseFloat(adjustQty),
+									reason_code: adjustReasonCode,
+									note: adjustNote.trim() || undefined,
+									confirm_negative: confirmNegative,
+								},
+							});
+							setFeedback("Ajuste registrado.");
+							await router.invalidate();
+						} catch (error) {
+							window.alert(
+								error instanceof Error
+									? error.message
+									: "No se pudo ajustar el stock.",
+							);
+						} finally {
+							setIsSubmitting(false);
+						}
+					}}
+					className="mt-3 rounded-xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+				>
+					Registrar ajuste
+				</button>
+			</section>
+
+			<section className="mt-6 rounded-3xl border bg-background p-5">
+				<h2 className="text-lg font-semibold">Historial de movimientos</h2>
+				<div className="mt-3 max-h-80 divide-y overflow-y-auto">
+					{stockMovements.map((movement) => (
+						<div key={movement.id} className="py-2 text-sm">
+							<p className="font-medium">
+								{movement.product_name} · {movement.movement_type}
+							</p>
+							<p className="text-xs text-muted-foreground">
+								{movement.warehouse_id} · {movement.previous_quantity} →{" "}
+								<span
+									className={
+										movement.new_quantity < 0 ? "text-red-600 font-medium" : ""
+									}
+								>
+									{movement.new_quantity}
+								</span>{" "}
+								· {movement.reason}
+							</p>
 						</div>
 					))}
 				</div>

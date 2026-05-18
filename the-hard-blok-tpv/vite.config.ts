@@ -7,6 +7,10 @@ import { defineConfig } from "vite";
 
 const config = defineConfig({
 	resolve: { tsconfigPaths: true },
+	test: {
+		environment: "node",
+		include: ["src/**/*.test.ts"],
+	},
 	plugins: [
 		devtools(),
 		nitro({ rollupConfig: { external: [/^@sentry\//] } }),

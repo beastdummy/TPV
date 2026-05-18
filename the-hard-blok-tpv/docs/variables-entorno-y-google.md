@@ -70,8 +70,13 @@ Guarda el `.env`, **reinicia** el servidor (`Ctrl+C` y `npm run dev`). Si cambia
 
 Orden típico en una base nueva:
 
-1. **`npm run db:schema`** — tablas de la app (`users` con `google_sub`, `sessions`, `categories`, `products`). Ver `db/schema.sql`.
-2. **`npm run db:auth-migrate`** — tablas de Better Auth (`user`, `session`, `account`, `verification`).
+1. **`npm run db:bootstrap`** — orden completo tras reset (`docker compose down -v`). Recomendado.
+2. O manualmente:
+   - **`npm run db:schema`** — tablas de la app (`users` con `google_sub`, `sessions`, catálogo, inventario). Ver `db/schema.sql`.
+   - **`npm run db:auth-migrate`** — tablas de Better Auth (`user`, `session`, `account`, `verification`).
+   - Migraciones: `db:migrate:platform`, `db:migrate:tenancy`, `db:migrate:catalog`, `db:migrate:sales`, `db:migrate:inventory`.
+
+Arquitectura dual: Better Auth `user` = identidad; `users` = perfil app (roles, `google_sub` = id Better Auth).
 3. Opcional: **`npm run db:seed`** — usuario admin por contraseña (`db/seed_admin.sql`).
 
 Detalle en la sección **Auth Setup** del `README.md`.

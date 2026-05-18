@@ -3,33 +3,25 @@ import { PlusCircle } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { AdminShell } from "../../components/layout/admin-shell";
-import { getProductsFn } from "../../features/admin/server-fns";
-import type { Product } from "../../features/admin/types";
-import { requireRoleForRoute } from "../../features/auth/route-guards";
-import { CATALOG_MANAGEMENT_ROLES } from "../../features/auth/types";
-import { getWarehousesFn } from "../../features/inventory/server-fns";
-import type { Warehouse } from "../../features/inventory/types";
 import {
-	createPurchaseReceiptFn,
-	createSupplierFn,
-	getRecentPurchaseReceiptsFn,
-	getSuppliersFn,
-} from "../../features/purchases/server-fns";
-import type { PurchaseReceiptListItem, Supplier } from "../../features/purchases/types";
+	createPurchaseReceiptForAdminFn,
+	createSupplierForAdminFn,
+	getPurchasesPageForAdminFn,
+} from "../../features/admin/purchases.server-fns";
+import type { Product } from "../../features/admin/types";
+import { requireCatalogManagementTenantForRoute } from "../../features/auth/route-guards";
+import type { Warehouse } from "../../features/inventory/types";
+import type {
+	PurchaseReceiptListItem,
+	Supplier,
+} from "../../features/purchases/types";
 
 export const Route = createFileRoute("/admin/purchases")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(CATALOG_MANAGEMENT_ROLES, location.href);
+		await requireCatalogManagementTenantForRoute(location.href);
 	},
 	loader: async () => {
-		const [suppliers, warehouses, products, receipts] = await Promise.all([
-			getSuppliersFn(),
-			getWarehousesFn(),
-			getProductsFn(),
-			getRecentPurchaseReceiptsFn(),
-		]);
-
-		return { suppliers, warehouses, products, receipts };
+		return await getPurchasesPageForAdminFn();
 	},
 	component: AdminPurchasesPage,
 });
@@ -77,7 +69,7 @@ function AdminPurchasesPage() {
 
 		try {
 			setIsSubmittingSupplier(true);
-			const result = await createSupplierFn({
+			const result = await createSupplierForAdminFn({
 				data: {
 					name,
 					tax_id: supplierTaxId.trim(),
@@ -95,7 +87,9 @@ function AdminPurchasesPage() {
 			await router.invalidate();
 		} catch (error) {
 			const message =
-				error instanceof Error ? error.message : "No se pudo crear el proveedor.";
+				error instanceof Error
+					? error.message
+					: "No se pudo crear el proveedor.";
 			window.alert(message);
 		} finally {
 			setIsSubmittingSupplier(false);
@@ -121,7 +115,7 @@ function AdminPurchasesPage() {
 
 		try {
 			setIsSubmittingReceipt(true);
-			await createPurchaseReceiptFn({
+			await createPurchaseReceiptForAdminFn({
 				data: {
 					supplier_id: selectedSupplierId,
 					warehouse_id: selectedWarehouseId,
@@ -287,7 +281,10 @@ function AdminPurchasesPage() {
 						</div>
 					) : (
 						receipts.map((receipt: PurchaseReceiptListItem) => (
-							<div key={receipt.id} className="rounded-2xl border px-3 py-2 text-sm">
+							<div
+								key={receipt.id}
+								className="rounded-2xl border px-3 py-2 text-sm"
+							>
 								<p className="font-medium">
 									{receipt.supplier_name} · {receipt.warehouse_name}
 								</p>
