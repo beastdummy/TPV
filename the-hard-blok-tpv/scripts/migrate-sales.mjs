@@ -33,6 +33,7 @@ try {
 		"002_sales_transaction_foundations.sql",
 		"003_sales_cash_session_closing_amount.sql",
 		"004_sale_payments_foundations.sql",
+		"011_sale_served_by_membership.sql",
 	]) {
 		const ddlPath = join(root, "db/migrations", file);
 		await client.query(readFileSync(ddlPath, "utf8"));

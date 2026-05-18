@@ -73,7 +73,7 @@ export async function resolveBusinessSlugForRegistration(params: {
 }
 
 export type RegisterCustomerOwnerResult = {
-	redirectTo: "/sales" | "/dashboard";
+	redirectTo: "/setup";
 	user: SessionUser;
 	business: {
 		id: string;
@@ -139,6 +139,7 @@ export async function registerCustomerOwner(
 	}
 
 	const passwordHash = hashPassword(input.password);
+	const posPinHash = hashPassword(input.posPin.trim());
 
 	await db.query("BEGIN");
 
@@ -196,18 +197,53 @@ export async function registerCustomerOwner(
 			);
 		}
 
-		await db.query(
+		const memberInsert = await db.query<{ id: string }>(
 			`
-      INSERT INTO business_members (business_id, user_id, role, status, is_primary)
-      VALUES ($1, $2, 'owner', 'active', TRUE)
+      INSERT INTO business_members (
+        business_id,
+        user_id,
+        role,
+        status,
+        is_primary,
+        pos_pin_hash
+      )
+      VALUES ($1, $2, 'owner', 'active', TRUE, $3)
+      RETURNING id
       `,
-			[business.id, userId],
+			[business.id, userId, posPinHash],
 		);
+
+		const membershipId = memberInsert.rows[0]?.id;
 
 		await db.query("COMMIT");
 
+		const { logBusinessAuditEvent } = await import(
+			"../business-setup/audit.server"
+		);
+		const { BUSINESS_AUDIT_ACTIONS } = await import("../business-setup/types");
+
+		await logBusinessAuditEvent({
+			businessId: business.id,
+			actorUserId: userId,
+			actorMemberId: membershipId ?? null,
+			action: BUSINESS_AUDIT_ACTIONS.BUSINESS_CREATED,
+			entityType: "business",
+			entityId: business.id,
+			metadata: { name: business.name, slug: business.slug },
+		});
+
+		await logBusinessAuditEvent({
+			businessId: business.id,
+			actorUserId: userId,
+			actorMemberId: membershipId ?? null,
+			action: BUSINESS_AUDIT_ACTIONS.OWNER_REGISTERED,
+			entityType: "business_member",
+			entityId: membershipId ?? undefined,
+			metadata: { email },
+		});
+
 		return {
-			redirectTo: "/sales",
+			redirectTo: "/setup",
 			user: {
 				id: userId,
 				email,

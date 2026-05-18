@@ -12,6 +12,7 @@ import {
 	PERMISSION_ACTION_LABELS,
 	PERMISSION_MODULE_LABELS,
 } from "../../features/business-staff/permissions";
+import { normalizeRolesPageData } from "../../features/business-staff/roles-page-data";
 import { slugifyRoleName } from "../../features/business-staff/schemas";
 import {
 	createRoleForAdminFn,
@@ -27,7 +28,8 @@ export const Route = createFileRoute("/admin/roles")({
 		await requireBusinessPermissionForRoute("roles.view", location.href);
 	},
 	loader: async () => {
-		return await getRolesForAdminFn();
+		const payload = await getRolesForAdminFn();
+		return normalizeRolesPageData(payload);
 	},
 	component: AdminRolesPage,
 });
@@ -78,7 +80,9 @@ function PermissionMatrix(props: {
 }
 
 function AdminRolesPage() {
-	const { roles, owner } = Route.useLoaderData();
+	const loaderData = Route.useLoaderData();
+	const rolesList = loaderData.roles;
+	const owner = loaderData.owner;
 	const router = useRouter();
 	const [editingRole, setEditingRole] = useState<BusinessRoleRow | null>(null);
 	const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -92,8 +96,8 @@ function AdminRolesPage() {
 	>(new Set());
 
 	const customRoles = useMemo(
-		() => roles.filter((role) => role.slug !== "owner"),
-		[roles],
+		() => rolesList.filter((role) => role.slug !== "owner"),
+		[rolesList],
 	);
 
 	function openCreate() {

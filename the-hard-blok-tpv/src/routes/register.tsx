@@ -32,18 +32,26 @@ function RegisterPage() {
 		password: "",
 		businessName: "",
 		businessSlug: "",
+		posPin: "",
+		confirmPosPin: "",
 	});
 
 	function resolveRedirectPath(redirectTo: string) {
 		if (search.redirect?.startsWith("/")) {
 			return search.redirect;
 		}
-		return redirectTo.startsWith("/") ? redirectTo : "/sales";
+		return redirectTo.startsWith("/") ? redirectTo : "/setup";
 	}
 
 	async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
 		event.preventDefault();
 		setErrorMessage(null);
+
+		if (form.posPin !== form.confirmPosPin) {
+			setErrorMessage("Los PIN del TPV no coinciden.");
+			return;
+		}
+
 		setIsSubmitting(true);
 
 		try {
@@ -54,6 +62,7 @@ function RegisterPage() {
 					password: form.password,
 					businessName: form.businessName,
 					businessSlug: form.businessSlug || undefined,
+					posPin: form.posPin,
 				},
 			});
 
@@ -157,6 +166,54 @@ function RegisterPage() {
 					</label>
 
 					<label className="block space-y-1.5 text-sm">
+						<span className="font-medium">PIN del TPV (propietario)</span>
+						<input
+							type="password"
+							required
+							inputMode="numeric"
+							pattern="\d{4,8}"
+							minLength={4}
+							maxLength={8}
+							autoComplete="off"
+							placeholder="4–8 dígitos"
+							value={form.posPin}
+							onChange={(event) =>
+								setForm((current) => ({
+									...current,
+									posPin: event.target.value.replace(/\D/g, "").slice(0, 8),
+								}))
+							}
+							className="w-full rounded-2xl border bg-background px-3 py-2.5 outline-none ring-primary/30 focus:ring-2"
+						/>
+						<p className="text-xs text-muted-foreground">
+							Lo usarás para desbloquear ventas en el TPV.
+						</p>
+					</label>
+
+					<label className="block space-y-1.5 text-sm">
+						<span className="font-medium">Confirmar PIN del TPV</span>
+						<input
+							type="password"
+							required
+							inputMode="numeric"
+							pattern="\d{4,8}"
+							minLength={4}
+							maxLength={8}
+							autoComplete="off"
+							value={form.confirmPosPin}
+							onChange={(event) =>
+								setForm((current) => ({
+									...current,
+									confirmPosPin: event.target.value
+										.replace(/\D/g, "")
+										.slice(0, 8),
+								}))
+							}
+							className="w-full rounded-2xl border bg-background px-3 py-2.5 outline-none ring-primary/30 focus:ring-2"
+						/>
+					</label>
+
+					<label className="block space-y-1.5 text-sm">
 						<span className="font-medium">
 							Slug del negocio{" "}
 							<span className="font-normal text-muted-foreground">
@@ -182,7 +239,9 @@ function RegisterPage() {
 						disabled={isSubmitting}
 						className="inline-flex w-full items-center justify-center rounded-2xl border border-primary bg-primary px-4 py-3 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-60"
 					>
-						{isSubmitting ? "Creando cuenta..." : "Crear cuenta y entrar"}
+						{isSubmitting
+							? "Creando cuenta..."
+							: "Crear cuenta y configurar TPV"}
 					</button>
 
 					<Link

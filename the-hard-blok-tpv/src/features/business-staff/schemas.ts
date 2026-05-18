@@ -61,6 +61,23 @@ export const idSchema = z.object({
 	id: z.string().uuid(),
 });
 
+export const setMyPosPinSchema = z.object({
+	pin: z
+		.string()
+		.trim()
+		.regex(/^\d{4,8}$/, "El PIN debe tener entre 4 y 8 dígitos."),
+});
+
+export const verifyPosPinSchema = setMyPosPinSchema;
+
+export const setEmployeePosPinSchema = z.object({
+	membership_id: z.string().uuid(),
+	pin: z
+		.string()
+		.trim()
+		.regex(/^\d{4,8}$/, "El PIN debe tener entre 4 y 8 dígitos."),
+});
+
 export function slugifyRoleName(value: string) {
 	return value
 		.toLowerCase()

@@ -28,6 +28,10 @@ vi.mock("../tenancy/queries.server", () => ({
 	getBusinessBySlug: mocks.getBusinessBySlug,
 }));
 
+vi.mock("../business-setup/audit.server", () => ({
+	logBusinessAuditEvent: vi.fn(),
+}));
+
 import { RegisterCustomerError } from "./register.errors";
 import {
 	parseRegisterCustomerOwnerInput,
@@ -44,6 +48,7 @@ const validInput = {
 	password: "password123",
 	businessName: "Café Ada",
 	businessSlug: "cafe-ada",
+	posPin: "1234",
 };
 
 describe("register customer", () => {
@@ -111,7 +116,7 @@ describe("register customer", () => {
 				return { rows: [] };
 			}
 			if (sql.includes("INSERT INTO business_members")) {
-				return { rows: [] };
+				return { rows: [{ id: "member-1" }] };
 			}
 			return { rows: [] };
 		});
@@ -135,7 +140,15 @@ describe("register customer", () => {
 		).toBe(true);
 		expect(result.user.role).toBe("owner");
 		expect(result.business.slug).toBe("cafe-ada");
-		expect(result.redirectTo).toBe("/sales");
+		expect(
+			mocks.query.mock.calls.some(
+				([sql]) =>
+					typeof sql === "string" &&
+					sql.includes("INSERT INTO business_members") &&
+					sql.includes("pos_pin_hash"),
+			),
+		).toBe(true);
+		expect(result.redirectTo).toBe("/setup");
 	});
 
 	it("does not create a second owner when business already has one", async () => {

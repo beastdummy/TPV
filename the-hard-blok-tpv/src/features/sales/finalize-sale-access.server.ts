@@ -1,3 +1,8 @@
+import {
+	POS_AUDIT_EVENTS,
+	recordPosAuditEvent,
+} from "../pos-session/audit-events";
+import { resolvePosOperatorForFinalize } from "../pos-session/pos-session-access.server";
 import { requireOpenCashSessionForPos } from "./cash-session-access.server";
 import { resolvePosBusinessContext } from "./sales-access.server";
 import {
@@ -39,6 +44,13 @@ function validateFinalizeSaleInput(input: FinalizeSaleInput): void {
 		throw new SalesTransactionError(
 			SALES_TX_ERROR_CODES.VALIDATION,
 			"La venta debe incluir al menos una línea.",
+		);
+	}
+
+	if (!input.operator_token?.trim()) {
+		throw new SalesTransactionError(
+			SALES_TX_ERROR_CODES.POS_OPERATOR_REQUIRED,
+			"Desbloquea el TPV con tu PIN antes de cobrar.",
 		);
 	}
 
@@ -89,12 +101,27 @@ export async function finalizeSale(
 ): Promise<FinalizeSaleResult> {
 	validateFinalizeSaleInput(input);
 
-	const { businessId, userId } = await resolvePosBusinessContext();
+	const { businessId } = await resolvePosBusinessContext();
 	const session = await requireOpenCashSessionForPos({
 		cash_session_id: input.cash_session_id,
 	});
 
 	const terminalId = input.terminal_id?.trim() || session.terminal_id;
+	const operator = await resolvePosOperatorForFinalize({
+		operator_token: input.operator_token,
+		businessId,
+		terminalId,
+	});
+
+	const operatorUserId = operator.userId;
+
+	recordPosAuditEvent(POS_AUDIT_EVENTS.SALE_FINALIZE, {
+		business_id: businessId,
+		terminal_id: terminalId,
+		operator_member_id: operator.membershipId,
+		operator_user_id: operator.userId,
+		operator_name: operator.displayName,
+	});
 	const idempotencyKey = buildSaleIdempotencyKey({
 		businessId,
 		operation: "finalize_sale",
@@ -103,9 +130,10 @@ export async function finalizeSale(
 
 	const lines = input.lines.map((line) => computeSaleLine(line));
 
-	return await executeFinalizeSaleCommand({
+	const result = await executeFinalizeSaleCommand({
 		business_id: businessId,
-		user_id: userId,
+		user_id: operatorUserId,
+		served_by_membership_id: operator.membershipId,
 		idempotency_key: idempotencyKey,
 		cash_session_id: session.id,
 		terminal_id: terminalId,
@@ -114,4 +142,11 @@ export async function finalizeSale(
 		notes: input.notes?.trim() ?? "",
 		lines,
 	});
+
+	const { auditSaleFinalized } = await import(
+		"../business-setup/setup-audit-hooks.server"
+	);
+	await auditSaleFinalized(result.sale_id);
+
+	return result;
 }

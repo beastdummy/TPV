@@ -1,5 +1,5 @@
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { Pencil, PlusCircle, X } from "lucide-react";
+import { KeyRound, Pencil, PlusCircle, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { AdminShell } from "../../components/layout/admin-shell";
@@ -8,6 +8,8 @@ import {
 	createEmployeeForAdminFn,
 	getAssignableRolesForAdminFn,
 	getEmployeesForAdminFn,
+	getMyPosPinStatusFn,
+	setMyPosPinFn,
 	updateEmployeeForAdminFn,
 } from "../../features/business-staff/staff.server-fns";
 import type { BusinessEmployeeRow } from "../../features/business-staff/types";
@@ -17,11 +19,12 @@ export const Route = createFileRoute("/admin/employees")({
 		await requireBusinessPermissionForRoute("employees.view", location.href);
 	},
 	loader: async () => {
-		const [employees, roles] = await Promise.all([
+		const [employees, roles, pinStatus] = await Promise.all([
 			getEmployeesForAdminFn(),
 			getAssignableRolesForAdminFn(),
+			getMyPosPinStatusFn(),
 		]);
-		return { employees, roles };
+		return { employees, roles, pinStatus };
 	},
 	component: AdminEmployeesPage,
 });
@@ -36,8 +39,13 @@ type EmployeeForm = {
 };
 
 function AdminEmployeesPage() {
-	const { employees, roles } = Route.useLoaderData();
+	const { employees, roles, pinStatus } = Route.useLoaderData();
 	const router = useRouter();
+	const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+	const [myPin, setMyPin] = useState("");
+	const [myPinConfirm, setMyPinConfirm] = useState("");
+	const [pinMessage, setPinMessage] = useState<string | null>(null);
+	const [isPinSubmitting, setIsPinSubmitting] = useState(false);
 	const [isModalOpen, setIsModalOpen] = useState(false);
 	const [editing, setEditing] = useState<BusinessEmployeeRow | null>(null);
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -82,6 +90,32 @@ function AdminEmployeesPage() {
 		setIsModalOpen(false);
 		setEditing(null);
 		setIsSubmitting(false);
+	}
+
+	async function handleSaveMyPin(e: React.FormEvent) {
+		e.preventDefault();
+		setPinMessage(null);
+
+		if (myPin !== myPinConfirm) {
+			setPinMessage("Los PIN no coinciden.");
+			return;
+		}
+
+		setIsPinSubmitting(true);
+		try {
+			await setMyPosPinFn({ data: { pin: myPin } });
+			setMyPin("");
+			setMyPinConfirm("");
+			setIsPinModalOpen(false);
+			setPinMessage("PIN TPV guardado.");
+			await router.invalidate();
+		} catch (error) {
+			setPinMessage(
+				error instanceof Error ? error.message : "No se pudo guardar el PIN.",
+			);
+		} finally {
+			setIsPinSubmitting(false);
+		}
 	}
 
 	async function handleSubmit(e: React.FormEvent) {
@@ -140,6 +174,35 @@ function AdminEmployeesPage() {
 					</button>
 				}
 			>
+				<div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-3xl border bg-muted/20 px-5 py-4">
+					<div className="flex items-center gap-3">
+						<div className="rounded-2xl border bg-card p-2">
+							<KeyRound className="h-4 w-4" />
+						</div>
+						<div>
+							<p className="font-medium">Mi PIN TPV</p>
+							<p className="text-sm text-muted-foreground">
+								{pinStatus.has_pin
+									? "PIN configurado. Puedes actualizarlo cuando quieras."
+									: "Configura tu PIN para operar en el TPV."}
+								{pinStatus.is_owner ? " (propietario)" : null}
+							</p>
+						</div>
+					</div>
+					<button
+						type="button"
+						onClick={() => {
+							setPinMessage(null);
+							setMyPin("");
+							setMyPinConfirm("");
+							setIsPinModalOpen(true);
+						}}
+						className="rounded-2xl border bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
+					>
+						Configurar mi PIN TPV
+					</button>
+				</div>
+
 				<div className="overflow-hidden rounded-3xl border bg-background">
 					<div className="grid grid-cols-[1.4fr_1.4fr_1fr_120px_100px_100px] gap-4 border-b px-5 py-4 text-xs uppercase tracking-[0.18em] text-muted-foreground">
 						<span>Nombre</span>
@@ -295,6 +358,55 @@ function AdminEmployeesPage() {
 								</button>
 							</div>
 						</form>
+					</div>
+				</div>
+			) : null}
+
+			{isPinModalOpen ? (
+				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+					<div className="w-full max-w-md rounded-3xl border bg-card p-6 shadow-2xl">
+						<div className="mb-4 flex items-center justify-between">
+							<h2 className="text-xl font-semibold">Configurar mi PIN TPV</h2>
+							<button type="button" onClick={() => setIsPinModalOpen(false)}>
+								<X className="h-4 w-4" />
+							</button>
+						</div>
+						<form onSubmit={handleSaveMyPin} className="space-y-4">
+							<input
+								type="password"
+								inputMode="numeric"
+								autoComplete="off"
+								className="w-full rounded-2xl border px-4 py-3 text-sm"
+								placeholder="PIN (4-8 dígitos)"
+								value={myPin}
+								onChange={(e) =>
+									setMyPin(e.target.value.replace(/\D/g, "").slice(0, 8))
+								}
+								required
+							/>
+							<input
+								type="password"
+								inputMode="numeric"
+								autoComplete="off"
+								className="w-full rounded-2xl border px-4 py-3 text-sm"
+								placeholder="Confirmar PIN"
+								value={myPinConfirm}
+								onChange={(e) =>
+									setMyPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 8))
+								}
+								required
+							/>
+							<button
+								type="submit"
+								disabled={isPinSubmitting}
+								className="w-full rounded-2xl border border-primary bg-primary py-2 text-sm text-primary-foreground"
+							>
+								{isPinSubmitting ? "Guardando..." : "Guardar PIN"}
+							</button>
+						</form>
+						{pinMessage ? (
+							<p className="mt-3 text-sm text-muted-foreground">{pinMessage}</p>
+						) : null}
 					</div>
 				</div>
 			) : null}

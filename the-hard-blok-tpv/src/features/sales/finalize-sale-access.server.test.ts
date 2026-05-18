@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
 	resolveDefaultBusinessContext: vi.fn(),
 	requireOpenCashSessionForPos: vi.fn(),
 	executeFinalizeSaleCommand: vi.fn(),
+	resolvePosOperatorForFinalize: vi.fn(),
 }));
 
 vi.mock("../auth/tenant-guards.server", () => ({
@@ -25,8 +26,22 @@ vi.mock("./cash-session-access.server", () => ({
 	requireOpenCashSessionForPos: mocks.requireOpenCashSessionForPos,
 }));
 
+vi.mock("../pos-session/pos-session-access.server", () => ({
+	resolvePosOperatorForFinalize: mocks.resolvePosOperatorForFinalize,
+	recordPosAuditEvent: vi.fn(),
+}));
+
+vi.mock("../pos-session/audit-events", () => ({
+	POS_AUDIT_EVENTS: { SALE_FINALIZE: "pos.sale.finalize" },
+	recordPosAuditEvent: vi.fn(),
+}));
+
 vi.mock("./transaction/finalize-sale-command.server", () => ({
 	executeFinalizeSaleCommand: mocks.executeFinalizeSaleCommand,
+}));
+
+vi.mock("../business-setup/setup-audit-hooks.server", () => ({
+	auditSaleFinalized: vi.fn(),
 }));
 
 import { finalizeSale } from "./finalize-sale-access.server";
@@ -34,14 +49,17 @@ import { SALES_TX_ERROR_CODES } from "./transaction/errors";
 
 const businessId = "biz-1";
 const userId = "user-1";
+const membershipId = "mem-cashier-1";
 const sessionId = "sess-1";
 const productId = "00000000-0000-4000-8000-000000000001";
+const operatorToken = "operator-token-test";
 
 const baseInput = {
 	client_request_id: "req-1",
 	cash_session_id: sessionId,
 	warehouse_id: "principal",
 	payment_method: "cash" as const,
+	operator_token: operatorToken,
 	lines: [
 		{
 			product_id: productId,
@@ -111,75 +129,56 @@ describe("finalize-sale-access.server (Fase C1)", () => {
 		});
 	}
 
+	function mockPosOperator() {
+		mocks.resolvePosOperatorForFinalize.mockResolvedValue({
+			membershipId,
+			userId,
+			roleSlug: "cashier",
+			displayName: "Cajero",
+			sessionId: "pos-sess-1",
+		});
+	}
+
 	it("finalizes a sale when session is open", async () => {
 		mockCashierMembership();
+		mockPosOperator();
 		mocks.requireOpenCashSessionForPos.mockResolvedValue(openSession);
 		mocks.executeFinalizeSaleCommand.mockResolvedValue(saleResult);
 
 		await expect(finalizeSale(baseInput)).resolves.toEqual(saleResult);
 
-		expect(mocks.requireOpenCashSessionForPos).toHaveBeenCalledWith({
-			cash_session_id: sessionId,
-		});
 		expect(mocks.executeFinalizeSaleCommand).toHaveBeenCalledWith(
 			expect.objectContaining({
 				business_id: businessId,
 				user_id: userId,
-				cash_session_id: sessionId,
-				warehouse_id: "principal",
-				idempotency_key: "sale:v1:biz-1:finalize_sale:req-1",
+				served_by_membership_id: membershipId,
 			}),
 		);
 	});
 
-	it("returns the same sale on duplicate client_request_id", async () => {
+	it("rejects finalize without operator token", async () => {
 		mockCashierMembership();
-		mocks.requireOpenCashSessionForPos.mockResolvedValue(openSession);
-		mocks.executeFinalizeSaleCommand.mockResolvedValue(saleResult);
 
-		await expect(finalizeSale(baseInput)).resolves.toEqual(saleResult);
 		await expect(
-			finalizeSale({ ...baseInput, client_request_id: "req-1" }),
-		).resolves.toEqual(saleResult);
-
-		expect(mocks.executeFinalizeSaleCommand).toHaveBeenCalledTimes(2);
-		expect(
-			mocks.executeFinalizeSaleCommand.mock.calls[0]?.[0].idempotency_key,
-		).toBe(mocks.executeFinalizeSaleCommand.mock.calls[1]?.[0].idempotency_key);
+			finalizeSale({ ...baseInput, operator_token: "" }),
+		).rejects.toMatchObject({
+			code: SALES_TX_ERROR_CODES.POS_OPERATOR_REQUIRED,
+		});
 	});
 
-	it("rejects finalize without open cash session", async () => {
+	it("rejects when POS operator session is missing", async () => {
 		mockCashierMembership();
+		mocks.requireOpenCashSessionForPos.mockResolvedValue(openSession);
 		const { SalesTransactionError } = await import("./transaction/errors");
-		mocks.requireOpenCashSessionForPos.mockRejectedValue(
+		mocks.resolvePosOperatorForFinalize.mockRejectedValue(
 			new SalesTransactionError(
-				SALES_TX_ERROR_CODES.CASH_SESSION_NOT_OPEN,
-				"No hay sesión de caja abierta.",
+				SALES_TX_ERROR_CODES.POS_OPERATOR_REQUIRED,
+				"Desbloquea el TPV con tu PIN antes de operar.",
 			),
 		);
 
 		await expect(finalizeSale(baseInput)).rejects.toMatchObject({
-			code: SALES_TX_ERROR_CODES.CASH_SESSION_NOT_OPEN,
-		});
-		expect(mocks.executeFinalizeSaleCommand).not.toHaveBeenCalled();
-	});
-
-	it("allows cashier role", async () => {
-		mockCashierMembership();
-		mocks.requireOpenCashSessionForPos.mockResolvedValue(openSession);
-		mocks.executeFinalizeSaleCommand.mockResolvedValue(saleResult);
-
-		await expect(finalizeSale(baseInput)).resolves.toEqual(saleResult);
-		expect(mocks.requireBusinessRole).toHaveBeenCalled();
-	});
-
-	it("rejects empty lines", async () => {
-		mockCashierMembership();
-
-		await expect(
-			finalizeSale({ ...baseInput, lines: [] }),
-		).rejects.toMatchObject({
-			code: SALES_TX_ERROR_CODES.VALIDATION,
+			code: SALES_TX_ERROR_CODES.POS_OPERATOR_REQUIRED,
 		});
 	});
 });

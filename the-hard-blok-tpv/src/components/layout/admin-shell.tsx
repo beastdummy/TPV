@@ -1,16 +1,23 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState } from "@tanstack/react-router";
+import type { LucideIcon } from "lucide-react";
 import {
 	Boxes,
 	ClipboardList,
 	FolderTree,
 	LayoutGrid,
+	Monitor,
 	Package,
+	Settings,
 	Shield,
 	ShoppingCart,
 	Users,
 	Warehouse,
 } from "lucide-react";
 import type { ReactNode } from "react";
+
+import type { AdminNavLinkKey } from "../../features/business-staff/admin-nav.server";
+import { getAdminNavContextFn } from "../../features/business-staff/staff.server-fns";
 
 type AdminShellProps = {
 	title: string;
@@ -19,51 +26,59 @@ type AdminShellProps = {
 	actions?: ReactNode;
 };
 
-const navItems = [
+type NavItemDef = {
+	key: AdminNavLinkKey;
+	to: string;
+	label: string;
+	icon: LucideIcon;
+};
+
+const navItemDefs: NavItemDef[] = [
+	{ key: "dashboard", to: "/admin", label: "Dashboard", icon: LayoutGrid },
+	{ key: "sales", to: "/sales", label: "Ventas / TPV", icon: Monitor },
 	{
-		to: "/admin",
-		label: "Resumen",
-		icon: LayoutGrid,
-	},
-	{
+		key: "categories",
 		to: "/admin/categories",
 		label: "Categorías",
 		icon: FolderTree,
 	},
+	{ key: "products", to: "/admin/products", label: "Productos", icon: Package },
 	{
-		to: "/admin/products",
-		label: "Productos",
-		icon: Package,
-	},
-	{
+		key: "warehouses",
 		to: "/admin/warehouses",
 		label: "Almacenes",
 		icon: Warehouse,
 	},
 	{
+		key: "inventory",
 		to: "/admin/inventory",
 		label: "Inventario",
 		icon: Boxes,
 	},
 	{
+		key: "purchases",
 		to: "/admin/purchases",
 		label: "Compras",
 		icon: ShoppingCart,
 	},
 	{
+		key: "employees",
 		to: "/admin/employees",
 		label: "Empleados",
 		icon: Users,
 	},
 	{
+		key: "roles",
 		to: "/admin/roles",
 		label: "Roles y permisos",
 		icon: Shield,
 	},
+	{ key: "audit", to: "/admin/audit", label: "Auditoría", icon: ClipboardList },
 	{
-		to: "/admin/audit",
-		label: "Auditoría",
-		icon: ClipboardList,
+		key: "settings",
+		to: "/admin/settings",
+		label: "Configuración",
+		icon: Settings,
 	},
 ];
 
@@ -75,6 +90,20 @@ export function AdminShell({
 }: AdminShellProps) {
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
+	});
+
+	const navQuery = useQuery({
+		queryKey: ["admin-nav-context"],
+		queryFn: () => getAdminNavContextFn(),
+		staleTime: 60_000,
+	});
+
+	const visibleKeys = navQuery.data?.visible;
+	const navItems = navItemDefs.filter((item) => {
+		if (!visibleKeys) {
+			return item.key === "dashboard" || item.key === "sales";
+		}
+		return visibleKeys[item.key];
 	});
 
 	return (
@@ -96,7 +125,9 @@ export function AdminShell({
 							const Icon = item.icon;
 							const isActive =
 								pathname === item.to ||
-								(item.to !== "/admin" && pathname.startsWith(item.to));
+								(item.to === "/admin"
+									? pathname === "/admin" || pathname === "/admin/"
+									: item.to !== "/sales" && pathname.startsWith(item.to));
 
 							return (
 								<Link

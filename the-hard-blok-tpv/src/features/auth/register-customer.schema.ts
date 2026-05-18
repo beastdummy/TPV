@@ -25,6 +25,10 @@ export const registerCustomerOwnerSchema = z.object({
 		.max(64, "El slug es demasiado largo.")
 		.optional()
 		.transform((value) => (value === "" ? undefined : value)),
+	posPin: z
+		.string()
+		.trim()
+		.regex(/^\d{4,8}$/, "El PIN TPV debe tener entre 4 y 8 dígitos."),
 });
 
 export type RegisterCustomerOwnerInput = z.infer<

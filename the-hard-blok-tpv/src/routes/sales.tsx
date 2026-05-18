@@ -1,15 +1,30 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 
 import { AppShell } from "../components/layout/app-shell";
+import { PosOperatorPinScreen } from "../components/pos/pos-operator-pin-screen";
 import { requirePosOperationTenantForRoute } from "../features/auth/route-guards";
+import {
+	getActivePosOperatorFn,
+	lockPosTerminalFn,
+	verifyPosPinForTerminalFn,
+} from "../features/pos-session/pos-session.rpc";
+import {
+	clearStoredPosOperatorToken,
+	readStoredPosOperatorToken,
+	writeStoredPosOperatorToken,
+} from "../features/pos-session/pos-session-storage";
+import type { ActivePosOperator } from "../features/pos-session/types";
 import {
 	buildFinalizeSaleLinesFromTicket,
 	getPosSaleErrorMessage,
 	POS_DEFAULT_TERMINAL_ID,
 	POS_DEFAULT_WAREHOUSE_ID,
 } from "../features/sales/build-pos-sale-payload";
-import { getActiveCashSessionForPosFn } from "../features/sales/cash-session.server-fns";
+import {
+	getActiveCashSessionForPosFn,
+	openCashSessionForPosFn,
+} from "../features/sales/cash-session.server-fns";
 import { finalizeSaleForPosFn } from "../features/sales/finalize-sale.server-fns";
 import {
 	getSaleReceiptByIdForPosFn,
@@ -69,6 +84,13 @@ function SalesPage() {
 	const [activeModal, setActiveModal] = useState<"discount" | "split" | null>(
 		null,
 	);
+	const [posOperator, setPosOperator] = useState<ActivePosOperator | null>(
+		null,
+	);
+	const [pinError, setPinError] = useState<string | null>(null);
+	const [isUnlockingPin, setIsUnlockingPin] = useState(false);
+	const [isOpeningCash, setIsOpeningCash] = useState(false);
+	const [pinRequiresEmail, setPinRequiresEmail] = useState(false);
 
 	const refreshPosContext = useCallback(async () => {
 		try {
@@ -90,6 +112,100 @@ function SalesPage() {
 	useEffect(() => {
 		void refreshPosContext();
 	}, [refreshPosContext]);
+
+	useEffect(() => {
+		const stored = readStoredPosOperatorToken(POS_DEFAULT_TERMINAL_ID);
+		if (!stored || posOperator) {
+			return;
+		}
+
+		void getActivePosOperatorFn({
+			data: {
+				operator_token: stored,
+				terminal_id: POS_DEFAULT_TERMINAL_ID,
+			},
+		}).then((session) => {
+			if (session) {
+				setPosOperator(session);
+			} else {
+				clearStoredPosOperatorToken(POS_DEFAULT_TERMINAL_ID);
+			}
+		});
+	}, [posOperator]);
+
+	async function handleUnlockPin(pin: string, email?: string) {
+		setIsUnlockingPin(true);
+		setPinError(null);
+		try {
+			const session = await verifyPosPinForTerminalFn({
+				data: {
+					pin,
+					email,
+					terminal_id: POS_DEFAULT_TERMINAL_ID,
+				},
+			});
+			writeStoredPosOperatorToken(POS_DEFAULT_TERMINAL_ID, session.token);
+			setPosOperator(session);
+			setPinRequiresEmail(false);
+		} catch (error) {
+			const message = getPosSaleErrorMessage(error);
+			setPinError(message);
+			if (message.includes("email") || message.includes("Email")) {
+				setPinRequiresEmail(true);
+			}
+		} finally {
+			setIsUnlockingPin(false);
+		}
+	}
+
+	async function handleLockPos() {
+		const token =
+			posOperator?.token ?? readStoredPosOperatorToken(POS_DEFAULT_TERMINAL_ID);
+		if (token) {
+			try {
+				await lockPosTerminalFn({
+					data: {
+						terminal_id: POS_DEFAULT_TERMINAL_ID,
+						operator_token: token,
+					},
+				});
+			} catch {
+				// ignore lock errors; client state still clears
+			}
+		}
+		clearStoredPosOperatorToken(POS_DEFAULT_TERMINAL_ID);
+		setPosOperator(null);
+		clearTicket();
+		setSelectedItemId(null);
+		resetKeypad();
+		setActionMessage("TPV bloqueado. Introduce tu PIN para continuar.");
+	}
+
+	async function handleSwitchEmployee() {
+		await handleLockPos();
+		setActionMessage("Introduce el PIN del siguiente empleado.");
+	}
+
+	async function handleOpenCashSession() {
+		setIsOpeningCash(true);
+		setActionMessage(null);
+		try {
+			const session = await openCashSessionForPosFn({
+				data: { terminal_id: POS_DEFAULT_TERMINAL_ID, opening_float: 0 },
+			});
+			setCashSession(session);
+			setActionMessage("Caja abierta. Introduce tu PIN para vender.");
+		} catch (error) {
+			setActionMessage(getPosSaleErrorMessage(error));
+		} finally {
+			setIsOpeningCash(false);
+		}
+	}
+
+	const operatorToken =
+		posOperator?.token ?? readStoredPosOperatorToken(POS_DEFAULT_TERMINAL_ID);
+	const showOpenCash = !cashSession;
+	const showPinGate = Boolean(cashSession && !operatorToken);
 
 	useEffect(() => {
 		if (!categories.length) {
@@ -262,6 +378,11 @@ function SalesPage() {
 			return;
 		}
 
+		if (!operatorToken) {
+			setActionMessage("Introduce tu PIN para cobrar.");
+			return;
+		}
+
 		try {
 			setIsFinalizingSale(true);
 			setActionMessage(null);
@@ -273,6 +394,7 @@ function SalesPage() {
 					terminal_id: POS_DEFAULT_TERMINAL_ID,
 					warehouse_id: POS_DEFAULT_WAREHOUSE_ID,
 					payment_method: "cash",
+					operator_token: operatorToken,
 					lines: buildFinalizeSaleLinesFromTicket(items),
 				},
 			});
@@ -359,7 +481,79 @@ function SalesPage() {
 
 	return (
 		<AppShell title="Ventas">
-			<div className="grid h-[calc(100vh-8rem)] gap-6 xl:grid-cols-[0.58fr_1.98fr]">
+			<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+				{posOperator ? (
+					<p className="text-sm text-muted-foreground">
+						Operando:{" "}
+						<span className="font-medium text-foreground">
+							{posOperator.operator_name}
+						</span>{" "}
+						<span className="text-xs">({posOperator.role})</span>
+					</p>
+				) : (
+					<p className="text-sm text-muted-foreground">TPV bloqueado</p>
+				)}
+				{operatorToken ? (
+					<div className="flex flex-wrap gap-2">
+						<button
+							type="button"
+							onClick={handleSwitchEmployee}
+							className="rounded-2xl border bg-background px-4 py-2 text-sm font-medium hover:bg-muted"
+						>
+							Cambiar empleado
+						</button>
+						<button
+							type="button"
+							onClick={handleLockPos}
+							className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-900 hover:bg-amber-100"
+						>
+							Bloquear TPV
+						</button>
+					</div>
+				) : null}
+			</div>
+			{showOpenCash ? (
+				<div className="mb-4 rounded-3xl border border-dashed bg-amber-50/80 p-6 text-center">
+					<h2 className="text-lg font-semibold">
+						Necesitas abrir caja para comenzar ventas
+					</h2>
+					<p className="mt-2 text-sm text-muted-foreground">
+						Completa la configuración inicial o abre la sesión de caja desde el
+						asistente de puesta en marcha.
+					</p>
+					<div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+						<Link
+							to="/setup"
+							className="rounded-2xl border border-primary bg-primary px-6 py-2 text-sm font-medium text-primary-foreground"
+						>
+							Continuar configuración
+						</Link>
+						<button
+							type="button"
+							disabled={isOpeningCash}
+							onClick={handleOpenCashSession}
+							className="rounded-2xl border bg-background px-6 py-2 text-sm font-medium hover:bg-muted"
+						>
+							{isOpeningCash ? "Abriendo..." : "Abrir caja ahora"}
+						</button>
+					</div>
+				</div>
+			) : null}
+
+			{showPinGate ? (
+				<PosOperatorPinScreen
+					title="PIN TPV"
+					description="Introduce tu PIN para operar en este terminal. La caja permanece abierta."
+					requireEmail={pinRequiresEmail}
+					isSubmitting={isUnlockingPin}
+					errorMessage={pinError}
+					onSubmit={handleUnlockPin}
+				/>
+			) : null}
+
+			<div
+				className={`grid h-[calc(100vh-8rem)] gap-6 xl:grid-cols-[0.58fr_1.98fr] ${showOpenCash || showPinGate ? "pointer-events-none opacity-40" : ""}`}
+			>
 				{/* =========================================================
             COLUMNA IZQUIERDA
             - Ticket actual

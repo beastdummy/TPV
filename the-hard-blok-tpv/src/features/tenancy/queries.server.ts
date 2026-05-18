@@ -145,3 +145,55 @@ export async function getPrimaryMembership(
 		},
 	};
 }
+
+export async function updateBusinessForSetup(params: {
+	businessId: string;
+	name: string;
+	legalName: string;
+	timezone: string;
+}) {
+	await db.query(
+		`
+    UPDATE businesses
+    SET name = $2,
+        legal_name = $3,
+        timezone = $4,
+        updated_at = NOW()
+    WHERE id = $1
+    `,
+		[params.businessId, params.name, params.legalName, params.timezone],
+	);
+}
+
+export async function getBusinessDetailsForSetup(businessId: string) {
+	const result = await db.query<{
+		id: string;
+		slug: string;
+		name: string;
+		legal_name: string;
+		timezone: string;
+		currency_code: string;
+	}>(
+		`
+    SELECT id, slug, name, legal_name, timezone, currency_code
+    FROM businesses
+    WHERE id = $1
+    LIMIT 1
+    `,
+		[businessId],
+	);
+
+	const row = result.rows[0];
+	if (!row) {
+		return null;
+	}
+
+	return {
+		id: row.id,
+		slug: row.slug,
+		name: row.name,
+		legal_name: row.legal_name,
+		timezone: row.timezone,
+		currency_code: row.currency_code,
+	};
+}

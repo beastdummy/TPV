@@ -20,6 +20,7 @@ const finalizeSaleSchema = z.object({
 	payment_method: z.enum(SALE_PAYMENT_METHODS),
 	lines: z.array(saleLineSchema).min(1),
 	notes: z.string().trim().max(500).optional(),
+	operator_token: z.string().trim().min(1),
 });
 
 /** Finaliza venta — transaccional e idempotente (Fase C1, sin stock ni pagos). */

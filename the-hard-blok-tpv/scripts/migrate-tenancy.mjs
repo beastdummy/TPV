@@ -23,6 +23,8 @@ try {
 		"006_business_members_one_owner_per_business_uidx.sql",
 		"008_business_custom_roles_foundation.sql",
 		"010_business_staff_permissions.sql",
+		"012_pos_operator_sessions.sql",
+		"013_business_setup_audit.sql",
 	]) {
 		const ddlPath = join(root, "db/migrations", file);
 		await client.query(readFileSync(ddlPath, "utf8"));

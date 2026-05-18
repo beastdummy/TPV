@@ -28,6 +28,10 @@ vi.mock("../tenancy/queries.server", () => ({
 	getBusinessBySlug: vi.fn(),
 }));
 
+vi.mock("../business-setup/audit.server", () => ({
+	logBusinessAuditEvent: vi.fn(),
+}));
+
 import { RegisterCustomerError } from "../auth/register.errors";
 import { registerCustomerOwner } from "../auth/register-customer.server";
 import { getBusinessBySlug } from "./queries.server";
@@ -38,6 +42,7 @@ const validInput = {
 	password: "password123",
 	businessName: "New Cafe",
 	businessSlug: "new-cafe",
+	posPin: "5678",
 };
 
 const migrationSql = readFileSync(
@@ -111,10 +116,17 @@ describe("register owner membership (multi-tenant)", () => {
 		const result = await registerCustomerOwner(validInput);
 
 		expect(result.user.role).toBe("owner");
-		expect(mocks.query).toHaveBeenCalledWith(
-			expect.stringContaining("INSERT INTO business_members"),
-			["biz-b", "user-new"],
-		);
+		expect(
+			mocks.query.mock.calls.some(
+				([sql, params]) =>
+					typeof sql === "string" &&
+					sql.includes("INSERT INTO business_members") &&
+					Array.isArray(params) &&
+					params[0] === "biz-b" &&
+					params[1] === "user-new" &&
+					typeof params[2] === "string",
+			),
+		).toBe(true);
 	});
 
 	it("blocks a second active owner in the same business", async () => {

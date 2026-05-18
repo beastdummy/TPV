@@ -29,9 +29,12 @@ function buildPaymentSnapshot(overrides: { amount?: number } = {}) {
 	};
 }
 
+const membershipId = "mem-1";
+
 const baseCommandInput = {
 	business_id: businessId,
 	user_id: userId,
+	served_by_membership_id: membershipId,
 	idempotency_key: "sale:v1:biz-1:finalize_sale:req-cmd",
 	cash_session_id: sessionId,
 	terminal_id: "tpv-1",

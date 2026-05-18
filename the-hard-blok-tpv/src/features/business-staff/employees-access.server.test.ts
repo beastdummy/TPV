@@ -35,6 +35,7 @@ vi.mock("./queries.server", () => ({
 import {
 	createEmployeeForBusiness,
 	loadEmployeesForBusiness,
+	updateEmployeeForBusiness,
 } from "./employees-access.server";
 import { BUSINESS_STAFF_ERRORS } from "./errors";
 
@@ -92,6 +93,38 @@ describe("employees-access.server", () => {
 		await loadEmployeesForBusiness();
 		expect(mocks.listEmployeesForBusiness).toHaveBeenCalledWith(businessB);
 		expect(mocks.listEmployeesForBusiness).not.toHaveBeenCalledWith(businessA);
+	});
+
+	it("cannot modify owner employee record", async () => {
+		mocks.requireBusinessPermission.mockResolvedValue({});
+		mocks.requireStaffBusinessContext.mockResolvedValue({
+			businessId: businessA,
+		});
+		mocks.getEmployeeMembershipForBusiness.mockResolvedValue({
+			membership_id: "mem-owner",
+			user_id: "user-owner",
+			name: "Owner",
+			email: "owner@cafe.com",
+			role_slug: "owner",
+			role_name: "Propietario",
+			status: "active",
+			has_pin: true,
+			is_primary: true,
+		});
+
+		await expect(
+			updateEmployeeForBusiness({
+				membership_id: "mem-owner",
+				name: "Owner",
+				email: "owner@cafe.com",
+				role_slug: "cashier",
+				status: "active",
+				pin: "9999",
+			}),
+		).rejects.toMatchObject({
+			code: BUSINESS_STAFF_ERRORS.OWNER_PROTECTED,
+		});
+		expect(mocks.updateBusinessMember).not.toHaveBeenCalled();
 	});
 
 	it("rejects duplicate email in same business", async () => {

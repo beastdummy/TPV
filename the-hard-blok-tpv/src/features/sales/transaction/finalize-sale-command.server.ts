@@ -21,6 +21,7 @@ import type {
 export type ExecuteFinalizeSaleCommandInput = {
 	business_id: string;
 	user_id: string;
+	served_by_membership_id: string;
 	idempotency_key: string;
 	cash_session_id: string;
 	terminal_id: string;
@@ -204,9 +205,10 @@ async function insertSaleHeader(
       payment_method,
       notes,
       created_by_user_id,
+      served_by_membership_id,
       idempotency_key
     )
-    VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8, $9, $10, $11, $12)
+    VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7, $8, $9, $10, $11, $12, $13)
     RETURNING id::text, receipt_number, total
   `,
 		[
@@ -221,6 +223,7 @@ async function insertSaleHeader(
 			input.payment_method,
 			input.notes,
 			input.user_id,
+			input.served_by_membership_id,
 			input.idempotency_key,
 		],
 	);

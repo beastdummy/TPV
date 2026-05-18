@@ -61,6 +61,7 @@ describe("sales/transaction scaffolding", () => {
 				cash_session_id: "sess-1",
 				warehouse_id: "principal",
 				payment_method: "cash",
+				operator_token: "token-test",
 				lines: [
 					{
 						product_id: "00000000-0000-4000-8000-000000000099",

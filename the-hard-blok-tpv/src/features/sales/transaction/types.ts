@@ -83,6 +83,8 @@ export type FinalizeSaleInput = {
 	payment_method: SalePaymentMethod;
 	lines: SaleLineInput[];
 	notes?: string;
+	/** Token devuelto por unlockPosOperator (empleado activo en TPV). */
+	operator_token: string;
 };
 
 /** Snapshot de pago devuelto tras finalize (interno, sin pasarela). */

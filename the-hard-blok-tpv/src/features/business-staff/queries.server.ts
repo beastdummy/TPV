@@ -425,6 +425,115 @@ export async function updateBusinessMember(params: {
 	);
 }
 
+const UUID_RE =
+	/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export async function getMembershipByUserIdForBusiness(params: {
+	businessId: string;
+	userId: string;
+}) {
+	const result = await db.query<{
+		membership_id: string;
+		role_slug: string;
+		has_pin: boolean;
+	}>(
+		`
+    SELECT
+      bm.id AS membership_id,
+      bm.role AS role_slug,
+      (bm.pos_pin_hash IS NOT NULL AND bm.pos_pin_hash <> '') AS has_pin
+    FROM business_members bm
+    WHERE bm.business_id = $1
+      AND bm.user_id = $2
+      AND bm.status IN ('active', 'suspended', 'invited')
+    LIMIT 1
+    `,
+		[params.businessId, params.userId],
+	);
+
+	return result.rows[0] ?? null;
+}
+
+export async function getBusinessMemberPinHash(params: {
+	businessId: string;
+	memberIdOrEmail: string;
+}): Promise<string | null> {
+	const key = params.memberIdOrEmail.trim();
+	const isUuid = UUID_RE.test(key);
+
+	const result = await db.query<{ pos_pin_hash: string | null }>(
+		isUuid
+			? `
+    SELECT bm.pos_pin_hash
+    FROM business_members bm
+    WHERE bm.business_id = $1
+      AND bm.id = $2
+      AND bm.status IN ('active', 'suspended', 'invited')
+    LIMIT 1
+    `
+			: `
+    SELECT bm.pos_pin_hash
+    FROM business_members bm
+    INNER JOIN users u ON u.id = bm.user_id
+    WHERE bm.business_id = $1
+      AND lower(u.email) = lower($2)
+      AND bm.status IN ('active', 'suspended', 'invited')
+    LIMIT 1
+    `,
+		[params.businessId, key],
+	);
+
+	const hash = result.rows[0]?.pos_pin_hash;
+	return hash && hash.length > 0 ? hash : null;
+}
+
+export async function updateMemberPosPinOnly(params: {
+	businessId: string;
+	membershipId: string;
+	posPinHash: string;
+}) {
+	await db.query(
+		`
+    UPDATE business_members
+    SET pos_pin_hash = $3, updated_at = NOW()
+    WHERE id = $1
+      AND business_id = $2
+    `,
+		[params.membershipId, params.businessId, params.posPinHash],
+	);
+}
+
+export async function listActiveMembersWithPinForBusiness(businessId: string) {
+	const result = await db.query<{
+		membership_id: string;
+		user_id: string;
+		role_slug: string;
+		name: string;
+		email: string;
+		pos_pin_hash: string;
+	}>(
+		`
+    SELECT
+      bm.id AS membership_id,
+      bm.user_id,
+      bm.role AS role_slug,
+      u.name,
+      u.email,
+      bm.pos_pin_hash
+    FROM business_members bm
+    INNER JOIN users u ON u.id = bm.user_id
+    WHERE bm.business_id = $1
+      AND bm.status = 'active'
+      AND bm.pos_pin_hash IS NOT NULL
+      AND bm.pos_pin_hash <> ''
+    ORDER BY u.name ASC
+    `,
+		[businessId],
+	);
+
+	return result.rows;
+}
+
 export async function countActiveOwnersForBusiness(
 	businessId: string,
 ): Promise<number> {
