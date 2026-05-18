@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
 	insertBusinessRole: vi.fn(),
 	getRoleForBusiness: vi.fn(),
 	findRoleByNameForBusiness: vi.fn(),
+	findRoleBySlugForBusiness: vi.fn(),
 	deleteBusinessRole: vi.fn(),
 	listPermissionKeysForRole: vi.fn(),
 	replaceRolePermissions: vi.fn(),
@@ -28,6 +29,7 @@ vi.mock("./queries.server", () => ({
 	insertBusinessRole: mocks.insertBusinessRole,
 	getRoleForBusiness: mocks.getRoleForBusiness,
 	findRoleByNameForBusiness: mocks.findRoleByNameForBusiness,
+	findRoleBySlugForBusiness: mocks.findRoleBySlugForBusiness,
 	deleteBusinessRole: mocks.deleteBusinessRole,
 	listPermissionKeysForRole: mocks.listPermissionKeysForRole,
 	replaceRolePermissions: mocks.replaceRolePermissions,
@@ -68,6 +70,7 @@ describe("roles-access.server", () => {
 			businessId: businessA,
 		});
 		mocks.findRoleByNameForBusiness.mockResolvedValue(null);
+		mocks.findRoleBySlugForBusiness.mockResolvedValue(null);
 		mocks.insertBusinessRole.mockResolvedValue("role-1");
 
 		const result = await createRoleForBusiness({
@@ -76,6 +79,29 @@ describe("roles-access.server", () => {
 		});
 
 		expect(result.role_id).toBe("role-1");
+	});
+
+	it("rejects duplicate slug in same business", async () => {
+		mocks.requireBusinessPermission.mockResolvedValue({});
+		mocks.requireStaffBusinessContext.mockResolvedValue({
+			businessId: businessA,
+		});
+		mocks.findRoleByNameForBusiness.mockResolvedValue(null);
+		mocks.findRoleBySlugForBusiness.mockResolvedValue({
+			id: "role-manager",
+			slug: "manager",
+		});
+
+		await expect(
+			createRoleForBusiness({
+				name: "Manager",
+				description: "",
+				slug: "manager",
+			}),
+		).rejects.toMatchObject({
+			code: BUSINESS_STAFF_ERRORS.ROLE_SLUG_ALREADY_EXISTS,
+		});
+		expect(mocks.insertBusinessRole).not.toHaveBeenCalled();
 	});
 
 	it("lists roles and system owner metadata for current business", async () => {

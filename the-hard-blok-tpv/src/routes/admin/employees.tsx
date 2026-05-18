@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { AdminShell } from "../../components/layout/admin-shell";
 import { requireBusinessPermissionForRoute } from "../../features/auth/route-guards";
+import { buildAssignableRolesList } from "../../features/business-staff/assignable-roles";
 import {
 	createEmployeeForAdminFn,
 	getAssignableRolesForAdminFn,
@@ -52,20 +53,45 @@ function AdminEmployeesPage() {
 	const [form, setForm] = useState<EmployeeForm>({
 		name: "",
 		email: "",
-		role_slug: roles[0]?.slug ?? "cashier",
+		role_slug: roles[0]?.slug ?? "",
 		status: "active",
 		pin: "",
 		clear_pin: false,
 	});
 
-	const assignableRoles = useMemo(() => roles, [roles]);
+	const assignableRoles = useMemo(() => {
+		const options = buildAssignableRolesList(
+			roles.map((role) => ({
+				id: role.id,
+				slug: role.slug,
+				name: role.name,
+			})),
+		);
+
+		if (
+			editing &&
+			editing.role_slug !== "owner" &&
+			!options.some((role) => role.slug === editing.role_slug)
+		) {
+			return [
+				{
+					id: `current:${editing.membership_id}`,
+					slug: editing.role_slug,
+					name: editing.role_name || editing.role_slug,
+				},
+				...options,
+			];
+		}
+
+		return options;
+	}, [roles, editing]);
 
 	function openCreate() {
 		setEditing(null);
 		setForm({
 			name: "",
 			email: "",
-			role_slug: assignableRoles[0]?.slug ?? "cashier",
+			role_slug: assignableRoles[0]?.slug ?? "",
 			status: "active",
 			pin: "",
 			clear_pin: false,
@@ -291,19 +317,39 @@ function AdminEmployeesPage() {
 								}
 								required
 							/>
-							<select
-								className="w-full rounded-2xl border px-4 py-3 text-sm"
-								value={form.role_slug}
-								onChange={(e) =>
-									setForm((prev) => ({ ...prev, role_slug: e.target.value }))
-								}
-							>
-								{assignableRoles.map((role) => (
-									<option key={role.slug} value={role.slug}>
-										{role.name}
-									</option>
-								))}
-							</select>
+							<label className="block space-y-1 text-sm">
+								<span className="font-medium">Rol</span>
+								<select
+									className="w-full rounded-2xl border px-4 py-3 text-sm"
+									value={form.role_slug}
+									onChange={(e) =>
+										setForm((prev) => ({
+											...prev,
+											role_slug: e.target.value,
+										}))
+									}
+									required
+									disabled={assignableRoles.length === 0}
+								>
+									{assignableRoles.length === 0 ? (
+										<option value="">
+											Crea un rol en Administración → Roles
+										</option>
+									) : (
+										assignableRoles.map((role) => (
+											<option key={role.id} value={role.slug}>
+												{role.name}
+											</option>
+										))
+									)}
+								</select>
+								{assignableRoles.length === 0 ? (
+									<p className="text-xs text-muted-foreground">
+										Necesitas al menos un rol personalizado antes de dar de alta
+										empleados.
+									</p>
+								) : null}
+							</label>
 							<select
 								className="w-full rounded-2xl border px-4 py-3 text-sm"
 								value={form.status}
@@ -351,7 +397,11 @@ function AdminEmployeesPage() {
 								</button>
 								<button
 									type="submit"
-									disabled={isSubmitting}
+									disabled={
+										isSubmitting ||
+										!form.role_slug ||
+										(!editing && assignableRoles.length === 0)
+									}
 									className="rounded-2xl border border-primary bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-60"
 								>
 									{isSubmitting ? "Guardando..." : "Guardar"}

@@ -125,12 +125,23 @@ export async function listRolesForBusiness(
       COUNT(bm.id) FILTER (
         WHERE bm.status IN ('active', 'suspended', 'invited')
       )::int AS member_count
-    FROM business_roles br
+    FROM (
+      SELECT DISTINCT ON (business_id, slug)
+        id,
+        business_id,
+        slug,
+        name,
+        description,
+        is_system,
+        created_at
+      FROM business_roles
+      WHERE business_id = $1
+      ORDER BY business_id, slug, created_at ASC, id ASC
+    ) br
     LEFT JOIN business_members bm
       ON bm.business_id = br.business_id
       AND bm.role = br.slug
-    WHERE br.business_id = $1
-    GROUP BY br.id
+    GROUP BY br.id, br.business_id, br.slug, br.name, br.description, br.is_system
     ORDER BY br.name ASC
     `,
 		[businessId],

@@ -6,6 +6,7 @@ import {
 	countActiveOwnersForBusiness,
 	deleteBusinessRole,
 	findRoleByNameForBusiness,
+	findRoleBySlugForBusiness,
 	getRoleForBusiness,
 	insertBusinessRole,
 	listPermissionKeysForRole,
@@ -85,11 +86,19 @@ export async function createRoleForBusiness(data: {
 		);
 	}
 
-	const duplicate = await findRoleByNameForBusiness({ businessId, name });
-	if (duplicate) {
+	const duplicateName = await findRoleByNameForBusiness({ businessId, name });
+	if (duplicateName) {
 		throw new BusinessStaffError(
 			BUSINESS_STAFF_ERRORS.DUPLICATE_ROLE_NAME,
 			"Ya existe un rol con ese nombre.",
+		);
+	}
+
+	const duplicateSlug = await findRoleBySlugForBusiness({ businessId, slug });
+	if (duplicateSlug) {
+		throw new BusinessStaffError(
+			BUSINESS_STAFF_ERRORS.ROLE_SLUG_ALREADY_EXISTS,
+			"Ya existe un rol con ese identificador (slug) en este negocio.",
 		);
 	}
 

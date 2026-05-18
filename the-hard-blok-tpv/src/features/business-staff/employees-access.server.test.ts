@@ -32,8 +32,10 @@ vi.mock("./queries.server", () => ({
 	listRolesForBusiness: mocks.listRolesForBusiness,
 }));
 
+import { hasUniqueAssignableRoleIds } from "./assignable-roles";
 import {
 	createEmployeeForBusiness,
+	listAssignableRolesForBusiness,
 	loadEmployeesForBusiness,
 	updateEmployeeForBusiness,
 } from "./employees-access.server";
@@ -127,14 +129,71 @@ describe("employees-access.server", () => {
 		expect(mocks.updateBusinessMember).not.toHaveBeenCalled();
 	});
 
+	it("listAssignableRolesForBusiness does not duplicate manager slug", async () => {
+		mocks.requireBusinessPermission.mockResolvedValue({});
+		mocks.requireStaffBusinessContext.mockResolvedValue({
+			businessId: businessA,
+		});
+		mocks.listRolesForBusiness.mockResolvedValue([
+			{
+				id: "role-manager",
+				business_id: businessA,
+				slug: "manager",
+				name: "Encargado",
+				description: "",
+				is_system: false,
+				member_count: 0,
+			},
+		]);
+
+		const roles = await listAssignableRolesForBusiness();
+
+		expect(roles.filter((role) => role.slug === "manager")).toHaveLength(1);
+		expect(roles.find((role) => role.slug === "manager")?.id).toBe(
+			"role-manager",
+		);
+		expect(hasUniqueAssignableRoleIds(roles)).toBe(true);
+	});
+
 	it("rejects duplicate email in same business", async () => {
 		mocks.requireBusinessPermission.mockResolvedValue({});
 		mocks.requireStaffBusinessContext.mockResolvedValue({
 			businessId: businessA,
 		});
+		mocks.listRolesForBusiness.mockResolvedValue([
+			{
+				id: "role-cajero",
+				business_id: businessA,
+				slug: "cajero",
+				name: "Cajero",
+				description: "",
+				is_system: false,
+				member_count: 0,
+			},
+		]);
 		mocks.findMembershipByEmailForBusiness.mockResolvedValue({
 			membership_id: "existing",
 		});
+
+		await expect(
+			createEmployeeForBusiness({
+				name: "Ana",
+				email: "ana@cafe.com",
+				role_slug: "cajero",
+				status: "active",
+			}),
+		).rejects.toMatchObject({
+			code: BUSINESS_STAFF_ERRORS.DUPLICATE_EMAIL,
+		});
+	});
+
+	it("rejects unknown role slug when creating employee", async () => {
+		mocks.requireBusinessPermission.mockResolvedValue({});
+		mocks.requireStaffBusinessContext.mockResolvedValue({
+			businessId: businessA,
+		});
+		mocks.findMembershipByEmailForBusiness.mockResolvedValue(null);
+		mocks.listRolesForBusiness.mockResolvedValue([]);
 
 		await expect(
 			createEmployeeForBusiness({
@@ -144,7 +203,7 @@ describe("employees-access.server", () => {
 				status: "active",
 			}),
 		).rejects.toMatchObject({
-			code: BUSINESS_STAFF_ERRORS.DUPLICATE_EMAIL,
+			code: BUSINESS_STAFF_ERRORS.VALIDATION,
 		});
 	});
 });

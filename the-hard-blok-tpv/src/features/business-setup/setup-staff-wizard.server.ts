@@ -48,13 +48,11 @@ export async function setupCreateEmployee(
 	}
 
 	const roles = await listRolesForBusiness(businessId);
-	const isLegacy =
-		data.role_slug === "admin" ||
-		data.role_slug === "manager" ||
-		data.role_slug === "cashier";
-	const isCustom = roles.some((role) => role.slug === data.role_slug);
-	if (!isLegacy && !isCustom) {
-		throw new Error("Selecciona un rol válido o crea uno rápido.");
+	const isDefined = roles.some((role) => role.slug === data.role_slug);
+	if (!isDefined) {
+		throw new Error(
+			"Crea un rol con los botones de roles rápidos o en administración antes de añadir el empleado.",
+		);
 	}
 
 	const passwordHash = hashPassword(randomBytes(24).toString("base64url"));

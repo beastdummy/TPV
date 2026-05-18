@@ -289,12 +289,9 @@ function SetupPage() {
 		roles: [],
 		hasCustomRoles: false,
 	};
-	const assignableRoles =
-		setupStaff.roles.length > 0
-			? setupStaff.roles
-			: [{ slug: "cashier", name: "Cajero (legacy)" }];
+	const assignableRoles = setupStaff.roles;
 	const selectedEmployeeRole =
-		employeeForm.role_slug || assignableRoles[0]?.slug || "cashier";
+		employeeForm.role_slug || assignableRoles[0]?.slug || "";
 	const canGoBack = getPreviousSetupStep(activeStep) !== null;
 
 	async function finishStaffStep(advanceTo: SetupStep = "open_cash") {
@@ -1035,11 +1032,15 @@ function SetupPage() {
 												}))
 											}
 										>
-											{assignableRoles.map((role) => (
-												<option key={role.slug} value={role.slug}>
-													{role.name}
-												</option>
-											))}
+											{assignableRoles.length === 0 ? (
+												<option value="">Crea un rol rápido arriba</option>
+											) : (
+												assignableRoles.map((role) => (
+													<option key={role.id} value={role.slug}>
+														{role.name}
+													</option>
+												))
+											)}
 										</select>
 									</label>
 									<label className="block space-y-1 text-sm">

@@ -4,6 +4,7 @@ import type { z } from "zod";
 
 import { hashPassword } from "../auth/password.server";
 import { BUSINESS_OWNER_ROLE } from "../tenancy/business-roles.types";
+import { buildAssignableRolesList } from "./assignable-roles";
 import { requireBusinessPermission } from "./business-permissions.server";
 import { BUSINESS_STAFF_ERRORS, BusinessStaffError } from "./errors";
 import {
@@ -22,7 +23,11 @@ import { requireStaffBusinessContext } from "./tenant-context.server";
 type CreateEmployeeInput = z.infer<typeof createEmployeeSchema>;
 type UpdateEmployeeInput = z.infer<typeof updateEmployeeSchema>;
 
-async function assertAssignableRole(businessId: string, roleSlug: string) {
+async function assertAssignableRole(
+	businessId: string,
+	roleSlug: string,
+	options?: { currentRoleSlug?: string },
+) {
 	if (roleSlug === BUSINESS_OWNER_ROLE) {
 		throw new BusinessStaffError(
 			BUSINESS_STAFF_ERRORS.OWNER_PROTECTED,
@@ -30,15 +35,17 @@ async function assertAssignableRole(businessId: string, roleSlug: string) {
 		);
 	}
 
-	const roles = await listRolesForBusiness(businessId);
-	const isLegacy =
-		roleSlug === "admin" || roleSlug === "manager" || roleSlug === "cashier";
-	const isCustom = roles.some((role) => role.slug === roleSlug);
+	if (options?.currentRoleSlug === roleSlug) {
+		return;
+	}
 
-	if (!isLegacy && !isCustom) {
+	const roles = await listRolesForBusiness(businessId);
+	const isDefined = roles.some((role) => role.slug === roleSlug);
+
+	if (!isDefined) {
 		throw new BusinessStaffError(
 			BUSINESS_STAFF_ERRORS.VALIDATION,
-			"Rol de negocio no válido.",
+			"Crea un rol en Administración → Roles antes de asignarlo a un empleado.",
 		);
 	}
 }
@@ -144,7 +151,9 @@ export async function updateEmployeeForBusiness(data: UpdateEmployeeInput) {
 		}
 	}
 
-	await assertAssignableRole(businessId, data.role_slug);
+	await assertAssignableRole(businessId, data.role_slug, {
+		currentRoleSlug: existing.role_slug,
+	});
 
 	await updateUserBasics({
 		userId: existing.user_id,
@@ -169,14 +178,11 @@ export async function listAssignableRolesForBusiness() {
 	const { businessId } = await requireStaffBusinessContext();
 	const custom = await listRolesForBusiness(businessId);
 
-	return [
-		...custom.map((role) => ({
+	return buildAssignableRolesList(
+		custom.map((role) => ({
+			id: role.id,
 			slug: role.slug,
 			name: role.name,
-			is_custom: true,
 		})),
-		{ slug: "admin", name: "Admin (legacy)", is_custom: false },
-		{ slug: "manager", name: "Manager (legacy)", is_custom: false },
-		{ slug: "cashier", name: "Cajero (legacy)", is_custom: false },
-	];
+	);
 }

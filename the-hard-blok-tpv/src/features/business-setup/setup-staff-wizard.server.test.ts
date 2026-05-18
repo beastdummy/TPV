@@ -87,4 +87,18 @@ describe("setup staff wizard", () => {
 		expect(mocks.insertBusinessRole).toHaveBeenCalled();
 		expect(mocks.replaceRolePermissions).toHaveBeenCalled();
 	});
+
+	it("does not insert preset when slug already exists", async () => {
+		mocks.findRoleBySlugForBusiness.mockResolvedValue({
+			id: "role-cajero",
+			slug: "cajero",
+		});
+
+		const result = await setupCreateQuickRole("biz-1", "cajero");
+
+		expect(result.created).toBe(false);
+		expect(result.role_id).toBe("role-cajero");
+		expect(mocks.insertBusinessRole).not.toHaveBeenCalled();
+		expect(mocks.replaceRolePermissions).not.toHaveBeenCalled();
+	});
 });
