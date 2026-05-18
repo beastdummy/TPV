@@ -73,6 +73,8 @@ export async function getBusinessSetupState(
 	};
 
 	const progress = normalizeSetupProgressFlags(flags);
+	const currentStep = resolveSetupCurrentStep(flags);
+	const completedSteps = buildSetupCompletedSteps(flags);
 
 	return {
 		businessDetailsConfirmed: progress.businessDetailsConfirmed,
@@ -87,8 +89,8 @@ export async function getBusinessSetupState(
 		hasOpenCashSession: progress.hasOpenCashSession,
 		canAccessSales: canEnterSalesAfterSetup(progress),
 		setupCompleted: progress.setupCompleted,
-		currentStep: resolveSetupCurrentStep(flags),
-		completedSteps: buildSetupCompletedSteps(flags),
+		currentStep,
+		completedSteps,
 	};
 }
 

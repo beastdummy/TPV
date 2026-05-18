@@ -210,6 +210,25 @@ describe("resolveSetupCurrentStep", () => {
 		expect(normalized.setupCompleted).toBe(false);
 	});
 
+	it("review_inventory to configure_cash flow keeps step 6 completed after refresh", () => {
+		const afterReview = {
+			...baseFlags,
+			businessDetailsConfirmed: true,
+			hasWarehouse: true,
+			hasCategory: true,
+			hasProduct: true,
+			hasInitialStock: true,
+			inventoryReviewed: true,
+			cashConfigured: false,
+			staffStepHandled: false,
+			hasOpenCashSession: false,
+		};
+
+		expect(resolveSetupCurrentStep(afterReview)).toBe("configure_cash");
+		expect(buildSetupCompletedSteps(afterReview)).toContain("review_inventory");
+		expect(buildSetupCompletedSteps(afterReview)).not.toContain("open_cash");
+	});
+
 	it("after inventory reviewed, required step is configure_cash when cash is not configured", () => {
 		expect(
 			resolveSetupCurrentStep({

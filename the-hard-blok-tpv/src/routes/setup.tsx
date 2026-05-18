@@ -124,11 +124,14 @@ function SetupPage() {
 	);
 
 	useEffect(() => {
+		if (isBusy) {
+			return;
+		}
 		const clamped = clampActiveSetupStep(activeStep, requiredStep, setupState);
 		if (clamped !== activeStep) {
 			setActiveStep(clamped);
 		}
-	}, [activeStep, requiredStep, setupState]);
+	}, [activeStep, requiredStep, setupState, isBusy]);
 
 	async function refreshWizard(options?: { preserveActiveStep?: boolean }) {
 		const next = await loadSetupWizardContextFn();
@@ -232,6 +235,11 @@ function SetupPage() {
 		await runStep(
 			async () => {
 				const result = await markInventoryReviewedStepFn();
+				if (!result.setup.inventoryReviewed) {
+					throw new Error(
+						"No se pudo guardar la revisión del inventario. Inténtalo de nuevo.",
+					);
+				}
 				applyWizardResult({
 					setup: result.setup,
 					productStockLines: result.productStockLines,

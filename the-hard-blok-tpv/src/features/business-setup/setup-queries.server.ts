@@ -1,5 +1,17 @@
 import { db } from "../../lib/db.server";
+import {
+	assertSetupBooleanFlagForBusiness,
+	readSetupBooleanFlagForBusiness,
+	SETUP_SETTINGS_FLAG_KEYS,
+	writeSetupBooleanFlagForBusiness,
+} from "./setup-settings.server";
 import type { SetupProductStockLine } from "./types";
+
+export {
+	readBusinessSettingsJson,
+	readSetupBooleanFromSettings,
+	SETUP_SETTINGS_FLAG_KEYS,
+} from "./setup-settings.server";
 
 export async function countActiveWarehouses(): Promise<number> {
 	const result = await db.query<{ count: string }>(
@@ -159,34 +171,22 @@ export async function markBusinessDetailsConfirmed(businessId: string) {
 export async function isInventoryReviewedForBusiness(
 	businessId: string,
 ): Promise<boolean> {
-	const result = await db.query<{ reviewed: boolean }>(
-		`
-    SELECT COALESCE(
-      (settings->'setup'->>'inventory_reviewed') IN ('true', 't', '1'),
-      FALSE
-    ) AS reviewed
-    FROM businesses
-    WHERE id = $1
-    `,
-		[businessId],
+	return await readSetupBooleanFlagForBusiness(
+		businessId,
+		SETUP_SETTINGS_FLAG_KEYS.inventoryReviewed,
 	);
-	return Boolean(result.rows[0]?.reviewed);
 }
 
 export async function markInventoryReviewedForBusiness(businessId: string) {
-	await db.query(
-		`
-    UPDATE businesses
-    SET settings = jsonb_set(
-      COALESCE(settings, '{}'::jsonb),
-      '{setup,inventory_reviewed}',
-      'true'::jsonb,
-      true
-    ),
-    updated_at = NOW()
-    WHERE id = $1
-    `,
-		[businessId],
+	await writeSetupBooleanFlagForBusiness(
+		businessId,
+		SETUP_SETTINGS_FLAG_KEYS.inventoryReviewed,
+		true,
+	);
+	await assertSetupBooleanFlagForBusiness(
+		businessId,
+		SETUP_SETTINGS_FLAG_KEYS.inventoryReviewed,
+		true,
 	);
 }
 

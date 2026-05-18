@@ -8,7 +8,6 @@ import {
 import { logBusinessAuditEvent } from "./audit.server";
 import {
 	hasInitialStockRecorded,
-	isInventoryReviewedForBusiness,
 	listProductStockLinesForSetup,
 	markBusinessDetailsConfirmed,
 	markBusinessSetupCompleted,
@@ -175,6 +174,13 @@ export async function markInventoryReviewedStep() {
 	await markInventoryReviewedForBusiness(businessId);
 	await auditInventoryReviewed();
 	const setup = await getBusinessSetupState(businessId);
+
+	if (!setup.inventoryReviewed) {
+		throw new Error(
+			"No se pudo guardar la revisión del inventario. Inténtalo de nuevo.",
+		);
+	}
+
 	return {
 		ok: true as const,
 		setup,
