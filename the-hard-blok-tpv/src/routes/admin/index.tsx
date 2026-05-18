@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import {
 	Boxes,
 	FolderTree,
+	Monitor,
 	Package,
 	PlusCircle,
 	ShoppingCart,
@@ -9,22 +10,19 @@ import {
 } from "lucide-react";
 
 import { AdminShell } from "../../components/layout/admin-shell";
-import {
-	getCategoriesFn,
-	getProductsFn,
-} from "../../features/admin/server-fns";
+import { getCategoriesForAdminFn } from "../../features/admin/categories.server-fns";
+import { getProductsForAdminFn } from "../../features/admin/products.server-fns";
 import type { Category, Product } from "../../features/admin/types";
-import { requireRoleForRoute } from "../../features/auth/route-guards";
-import { CATALOG_MANAGEMENT_ROLES } from "../../features/auth/types";
+import { requireCatalogManagementTenantForRoute } from "../../features/auth/route-guards";
 
 export const Route = createFileRoute("/admin/")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(CATALOG_MANAGEMENT_ROLES, location.href);
+		await requireCatalogManagementTenantForRoute(location.href);
 	},
 	loader: async () => {
 		const [categories, products] = await Promise.all([
-			getCategoriesFn(),
-			getProductsFn(),
+			getCategoriesForAdminFn(),
+			getProductsForAdminFn(),
 		]);
 
 		return { categories, products };
@@ -48,13 +46,22 @@ function AdminIndexPage() {
 			title="Administración"
 			description="Centro de control para gestionar el catálogo del TPV."
 			actions={
-				<Link
-					to="/admin/products/create"
-					className="inline-flex items-center gap-2 rounded-2xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
-				>
-					<PlusCircle className="h-4 w-4" />
-					Nuevo producto
-				</Link>
+				<div className="flex flex-wrap items-center gap-3">
+					<Link
+						to="/sales"
+						className="inline-flex items-center gap-2 rounded-2xl border bg-background px-4 py-2 text-sm font-medium transition hover:bg-muted"
+					>
+						<Monitor className="h-4 w-4" />
+						Abrir TPV
+					</Link>
+					<Link
+						to="/admin/products/create"
+						className="inline-flex items-center gap-2 rounded-2xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90"
+					>
+						<PlusCircle className="h-4 w-4" />
+						Nuevo producto
+					</Link>
+				</div>
 			}
 		>
 			<div className="grid gap-6 md:grid-cols-3">

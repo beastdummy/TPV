@@ -4,19 +4,18 @@ import { useMemo, useState } from "react";
 
 import { AdminShell } from "../../components/layout/admin-shell";
 import {
-	createProductFn,
-	getCategoriesFn,
-} from "../../features/admin/server-fns";
+	createProductForAdminFn,
+	getCategoriesForProductsPageFn,
+} from "../../features/admin/products.server-fns";
 import type { Category } from "../../features/admin/types";
-import { requireRoleForRoute } from "../../features/auth/route-guards";
-import { CATALOG_MANAGEMENT_ROLES } from "../../features/auth/types";
+import { requireCatalogManagementTenantForRoute } from "../../features/auth/route-guards";
 
 export const Route = createFileRoute("/admin/products/create")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(CATALOG_MANAGEMENT_ROLES, location.href);
+		await requireCatalogManagementTenantForRoute(location.href);
 	},
 	loader: async () => {
-		const categories = await getCategoriesFn();
+		const categories = await getCategoriesForProductsPageFn();
 		return { categories };
 	},
 	component: NewProductPage,
@@ -59,7 +58,7 @@ function NewProductPage() {
 		setIsSubmitting(true);
 
 		try {
-			await createProductFn({
+			await createProductForAdminFn({
 				data: form,
 			});
 

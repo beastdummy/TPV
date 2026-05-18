@@ -2,12 +2,40 @@ import { db } from "../../lib/db.server";
 
 export async function getCategories() {
 	const result = await db.query(`
-    SELECT id, name, description, sort_order, is_active
+    SELECT id, name, description, image_url, sort_order, is_active
     FROM categories
     ORDER BY sort_order ASC
   `);
 
 	return result.rows;
+}
+
+export async function getCategoryById(categoryId: string) {
+	const result = await db.query(
+		`
+    SELECT id, name, description, image_url, sort_order, is_active
+    FROM categories
+    WHERE id = $1
+    LIMIT 1
+    `,
+		[categoryId],
+	);
+
+	return result.rows[0] ?? null;
+}
+
+export async function updateCategoryImageUrl(
+	categoryId: string,
+	imageUrl: string,
+) {
+	await db.query(
+		`
+    UPDATE categories
+    SET image_url = $2, updated_at = NOW()
+    WHERE id = $1
+    `,
+		[categoryId, imageUrl],
+	);
 }
 
 export async function getProducts() {
@@ -115,7 +143,7 @@ export async function createProduct(data: {
 	warehouse: string;
 	sort_order: number;
 }) {
-	await db.query(
+	const result = await db.query<{ id: string }>(
 		`
     INSERT INTO products (
       id,
@@ -133,6 +161,7 @@ export async function createProduct(data: {
       gen_random_uuid(),
       $1, $2, $3, $4, $5, $6, $7, $8, true
     )
+    RETURNING id::text
     `,
 		[
 			data.name,
@@ -145,6 +174,13 @@ export async function createProduct(data: {
 			data.sort_order,
 		],
 	);
+
+	const id = result.rows[0]?.id;
+	if (!id) {
+		throw new Error("No se pudo crear el producto.");
+	}
+
+	return { id };
 }
 
 export async function getProductById(productId: string) {

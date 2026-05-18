@@ -4,22 +4,21 @@ import { useMemo, useState } from "react";
 
 import { AdminShell } from "../../components/layout/admin-shell";
 import {
-	getCategoriesFn,
-	getProductByIdFn,
-	updateProductFn,
-} from "../../features/admin/server-fns";
+	getCategoriesForProductsPageFn,
+	getProductByIdForAdminFn,
+	updateProductForAdminFn,
+} from "../../features/admin/products.server-fns";
 import type { Category } from "../../features/admin/types";
-import { requireRoleForRoute } from "../../features/auth/route-guards";
-import { CATALOG_MANAGEMENT_ROLES } from "../../features/auth/types";
+import { requireCatalogManagementTenantForRoute } from "../../features/auth/route-guards";
 
 export const Route = createFileRoute("/admin/products/$productId/edit")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(CATALOG_MANAGEMENT_ROLES, location.href);
+		await requireCatalogManagementTenantForRoute(location.href);
 	},
 	loader: async ({ params }) => {
 		const [categories, product] = await Promise.all([
-			getCategoriesFn(),
-			getProductByIdFn({
+			getCategoriesForProductsPageFn(),
+			getProductByIdForAdminFn({
 				data: { id: params.productId },
 			}),
 		]);
@@ -74,7 +73,7 @@ function EditProductPage() {
 		setIsSubmitting(true);
 
 		try {
-			await updateProductFn({
+			await updateProductForAdminFn({
 				data: form,
 			});
 

@@ -2,6 +2,7 @@ export type Warehouse = {
 	id: string;
 	name: string;
 	is_active: boolean;
+	is_default?: boolean;
 };
 
 export type WarehouseStockRow = {
@@ -11,8 +12,24 @@ export type WarehouseStockRow = {
 	quantity: number;
 };
 
-export const STOCK_MOVEMENT_TYPES = ["in", "out", "adjustment"] as const;
-export type StockMovementType = (typeof STOCK_MOVEMENT_TYPES)[number];
+import type { StockMovementType } from "./stock-movement-types";
+
+export {
+	LEGACY_STOCK_MOVEMENT_TYPES,
+	type LegacyStockMovementType,
+	STOCK_MOVEMENT_TYPES,
+	type StockMovementType,
+} from "./stock-movement-types";
+
+export type ProductStockRow = {
+	product_id: string;
+	product_name: string;
+	warehouse_id: string;
+	warehouse_name: string;
+	quantity: number;
+	minimum_quantity: number;
+	reorder_quantity: number;
+};
 
 export type StockMovement = {
 	id: string;

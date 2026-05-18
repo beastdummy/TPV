@@ -1,8 +1,9 @@
-import { db } from "../../lib/db.server";
 import type { PoolClient } from "pg";
+import { db } from "../../lib/db.server";
 
 import type {
 	InventoryItemRow,
+	ProductStockRow,
 	StockMovement,
 	StockMovementType,
 	Warehouse,
@@ -12,27 +13,49 @@ import type {
 export async function getWarehouses() {
 	const result = await db.query<Warehouse>(
 		`
-    SELECT id, name, is_active
+    SELECT id, name, is_active, is_default
     FROM warehouses
-    ORDER BY name ASC
+    ORDER BY is_default DESC, created_at ASC, name ASC
   `,
 	);
 
 	return result.rows;
 }
 
+export async function countActiveWarehouses(): Promise<number> {
+	const result = await db.query<{ count: string }>(
+		`
+    SELECT COUNT(*)::text AS count
+    FROM warehouses
+    WHERE is_active = TRUE
+    `,
+	);
+	return Number(result.rows[0]?.count ?? 0);
+}
+
 export async function createWarehouse(data: Warehouse) {
+	const activeCount = await countActiveWarehouses();
+	const shouldBeDefault = data.is_default ?? activeCount === 0;
+
 	await db.query(
 		`
     INSERT INTO warehouses (
       id,
       name,
-      is_active
+      is_active,
+      is_default
     )
-    VALUES ($1, $2, $3)
+    VALUES ($1, $2, $3, $4)
     `,
-		[data.id, data.name, data.is_active],
+		[data.id, data.name, data.is_active, shouldBeDefault],
 	);
+
+	if (shouldBeDefault) {
+		const { setDefaultWarehouse } = await import(
+			"./operational-warehouse.server"
+		);
+		await setDefaultWarehouse(data.id);
+	}
 }
 
 export async function getWarehouseStock(warehouseId: string) {
@@ -222,6 +245,61 @@ export async function getWarehouseMovements(warehouseId: string) {
 	return result.rows;
 }
 
+export async function getProductStockOverview(
+	warehouseId?: string,
+): Promise<ProductStockRow[]> {
+	const result = await db.query<ProductStockRow>(
+		`
+    SELECT
+      ps.product_id::text,
+      p.name AS product_name,
+      ps.warehouse_id,
+      w.name AS warehouse_name,
+      ps.quantity::float8 AS quantity,
+      COALESCE(ps.minimum_quantity, 0)::float8 AS minimum_quantity,
+      COALESCE(ps.reorder_quantity, 0)::float8 AS reorder_quantity
+    FROM product_stock ps
+    JOIN products p ON p.id = ps.product_id
+    JOIN warehouses w ON w.id = ps.warehouse_id
+    WHERE p.is_active = TRUE
+      AND w.is_active = TRUE
+      AND ($1::text IS NULL OR ps.warehouse_id = $1)
+    ORDER BY w.name ASC, p.name ASC
+    `,
+		[warehouseId ?? null],
+	);
+
+	return result.rows;
+}
+
+export async function getAllStockMovements(limit = 100) {
+	const result = await db.query<StockMovement>(
+		`
+    SELECT
+      sm.id,
+      sm.product_id,
+      p.name AS product_name,
+      sm.warehouse_id,
+      sm.movement_type,
+      sm.quantity::float8 AS quantity,
+      sm.previous_quantity::float8 AS previous_quantity,
+      sm.new_quantity::float8 AS new_quantity,
+      sm.reason,
+      sm.performed_by_user_id::text AS performed_by_user_id,
+      u.name AS performed_by_user_name,
+      sm.created_at::text AS created_at
+    FROM stock_movements sm
+    JOIN products p ON p.id = sm.product_id
+    JOIN users u ON u.id = sm.performed_by_user_id
+    ORDER BY sm.created_at DESC
+    LIMIT $1
+    `,
+		[limit],
+	);
+
+	return result.rows;
+}
+
 export async function getInventoryItems() {
 	const result = await db.query<InventoryItemRow>(
 		`
@@ -286,13 +364,7 @@ export async function createInventoryMovementDetailed(input: {
         )
       LIMIT 1
     `,
-			[
-				input.warehouse_id,
-				input.product_id,
-				lotCode,
-				serialNumber,
-				expiryDate,
-			],
+			[input.warehouse_id, input.product_id, lotCode, serialNumber, expiryDate],
 		);
 
 		const currentQty = existingResult.rows[0]?.qty_on_hand ?? 0;
@@ -374,7 +446,9 @@ export async function createInventoryMovementDetailed(input: {
 			],
 		);
 
-		const previousWarehouseStockResult = await client.query<{ quantity: number }>(
+		const previousWarehouseStockResult = await client.query<{
+			quantity: number;
+		}>(
 			`
       SELECT COALESCE(quantity, 0)::float8 AS quantity
       FROM product_stock
