@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
 	getAppUserFn: vi.fn(),
+	getSessionRedirectContextFn: vi.fn(),
 	ensurePlatformAdminFn: vi.fn(),
 	redirect: vi.fn((opts: unknown) => {
 		const err = new Error("REDIRECT");
@@ -12,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("./auth.rpc", () => ({
 	getAppUserFn: mocks.getAppUserFn,
+	getSessionRedirectContextFn: mocks.getSessionRedirectContextFn,
 }));
 
 vi.mock("../platform/platform.rpc", () => ({
@@ -53,12 +55,19 @@ describe("requirePlatformAdminForRoute", () => {
 		});
 	});
 
-	it("redirects business owner to business dashboard", async () => {
+	it("redirects business owner with incomplete setup to /setup", async () => {
 		mocks.getAppUserFn.mockResolvedValue({
 			id: "biz-owner",
 			email: "owner@cafe.com",
 			name: "Owner",
 			role: "owner",
+		});
+		mocks.getSessionRedirectContextFn.mockResolvedValue({
+			authenticated: true,
+			hasBusinessMembership: true,
+			isPlatformOnly: false,
+			setupCompleted: false,
+			membershipRole: "owner",
 		});
 		mocks.ensurePlatformAdminFn.mockRejectedValue(new Error("FORBIDDEN"));
 
@@ -66,7 +75,7 @@ describe("requirePlatformAdminForRoute", () => {
 			requirePlatformAdminForRoute("/platform"),
 		).rejects.toMatchObject({
 			message: "REDIRECT",
-			opts: { to: "/dashboard" },
+			opts: { to: "/setup" },
 		});
 	});
 });

@@ -1,22 +1,15 @@
-import {
-	createFileRoute,
-	Link,
-	redirect,
-	useRouter,
-} from "@tanstack/react-router";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { CheckCircle2, Circle } from "lucide-react";
 import { useMemo, useState } from "react";
 import {
 	SetupCreatedList,
 	SetupWizardNav,
 } from "../components/setup/setup-wizard-nav";
-import { requireRoleForRoute } from "../features/auth/route-guards";
-import type { Role } from "../features/auth/types";
+import { requireSetupPageForRoute } from "../features/auth/route-guards";
 import {
 	completeSetupStaffStepFn,
 	confirmBusinessSetupDetailsFn,
 	finishBusinessSetupFn,
-	getBusinessSetupStateFn,
 	loadSetupWizardContextFn,
 	markCashConfiguredStepFn,
 	markInventoryReviewedStepFn,
@@ -41,8 +34,6 @@ import { SETUP_QUICK_ROLE_PRESETS } from "../features/business-setup/setup-role-
 import type { SetupStep } from "../features/business-setup/types";
 import { SETUP_STEPS } from "../features/business-setup/types";
 
-const SETUP_ROLES: Role[] = ["owner"];
-
 const STEP_LABELS: Record<SetupStep, string> = {
 	confirm_business: "Datos del negocio",
 	warehouse: "Almacenes",
@@ -58,11 +49,7 @@ const STEP_LABELS: Record<SetupStep, string> = {
 
 export const Route = createFileRoute("/setup")({
 	beforeLoad: async ({ location }) => {
-		await requireRoleForRoute(SETUP_ROLES, location.href);
-		const setup = await getBusinessSetupStateFn();
-		if (setup?.setupCompleted) {
-			throw redirect({ to: "/dashboard" });
-		}
+		await requireSetupPageForRoute(location.href);
 	},
 	loader: async () => {
 		const wizard = await loadSetupWizardContextFn();

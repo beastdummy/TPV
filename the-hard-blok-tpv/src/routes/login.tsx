@@ -1,11 +1,13 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 
 import {
-	getAppUserFn,
 	getOAuthSetupFn,
+	getSessionRedirectContextFn,
 	signInDevOwnerFn,
 } from "../features/auth/auth.rpc";
+import { resolvePostLoginRedirect } from "../features/auth/post-login-redirect";
+import { redirectAuthenticatedFromAuthPages } from "../features/auth/route-guards";
 import { authClient } from "../lib/auth-client";
 
 type LoginSearch = {
@@ -17,10 +19,7 @@ export const Route = createFileRoute("/login")({
 		redirect: typeof search.redirect === "string" ? search.redirect : undefined,
 	}),
 	beforeLoad: async () => {
-		const user = await getAppUserFn();
-		if (user) {
-			throw redirect({ to: "/dashboard" });
-		}
+		await redirectAuthenticatedFromAuthPages();
 	},
 	loader: async () => {
 		return await getOAuthSetupFn();
@@ -35,8 +34,12 @@ function LoginPage() {
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-	function resolvePostLoginPath() {
-		return search.redirect?.startsWith("/") ? search.redirect : "/dashboard";
+	async function resolvePostLoginPath() {
+		if (search.redirect?.startsWith("/")) {
+			return search.redirect;
+		}
+		const sessionCtx = await getSessionRedirectContextFn();
+		return resolvePostLoginRedirect(sessionCtx);
 	}
 
 	async function handleDevOwnerSignIn() {
@@ -45,7 +48,9 @@ function LoginPage() {
 
 		try {
 			const result = await signInDevOwnerFn();
-			window.location.assign(result.redirectTo ?? resolvePostLoginPath());
+			window.location.assign(
+				result.redirectTo ?? (await resolvePostLoginPath()),
+			);
 		} catch (error) {
 			setErrorMessage(
 				error instanceof Error
@@ -66,7 +71,7 @@ function LoginPage() {
 		try {
 			await authClient.signIn.social({
 				provider: "google",
-				callbackURL: resolvePostLoginPath(),
+				callbackURL: await resolvePostLoginPath(),
 			});
 		} catch (error) {
 			setErrorMessage(

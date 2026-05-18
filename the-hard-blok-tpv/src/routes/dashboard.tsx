@@ -13,7 +13,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AppShell } from "../components/layout/app-shell";
 import { getAppUserFn } from "../features/auth/auth.rpc";
-import { requireRoleForRoute } from "../features/auth/route-guards";
+import {
+	requireDashboardPageForRoute,
+	requireRoleForRoute,
+} from "../features/auth/route-guards";
 import type { Role } from "../features/auth/types";
 import { getBusinessSetupStateFn } from "../features/business-setup/setup.rpc";
 import type { BusinessSetupState } from "../features/business-setup/types";
@@ -31,6 +34,7 @@ const DASHBOARD_ROLES: Role[] = ["owner", "manager"];
 
 export const Route = createFileRoute("/dashboard")({
 	beforeLoad: async ({ location }) => {
+		await requireDashboardPageForRoute(location.href);
 		await requireRoleForRoute(DASHBOARD_ROLES, location.href);
 	},
 	loader: async () => {

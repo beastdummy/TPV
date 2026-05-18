@@ -1,11 +1,31 @@
 import { redirect } from "@tanstack/react-router";
-
-import { getAppUserFn } from "./auth.rpc";
+import { BUSINESS_OWNER_ROLE } from "../tenancy/business-roles.types";
+import { getAppUserFn, getSessionRedirectContextFn } from "./auth.rpc";
+import {
+	resolvePostLoginRedirect,
+	shouldRedirectAuthenticatedFromAuthPage,
+} from "./post-login-redirect";
 import {
 	CATALOG_MANAGEMENT_ROLES,
 	POS_OPERATION_ROLES,
 	type Role,
 } from "./types";
+
+export async function throwPostLoginRedirect(
+	redirectTo: string,
+): Promise<never> {
+	const sessionCtx = await getSessionRedirectContextFn();
+	const target = resolvePostLoginRedirect(sessionCtx);
+
+	if (target === "/login") {
+		throw redirect({
+			to: "/login",
+			search: { redirect: redirectTo },
+		});
+	}
+
+	throw redirect({ to: target });
+}
 
 export async function requireAuthForRoute(redirectTo: string) {
 	const user = await getAppUserFn();
@@ -20,17 +40,86 @@ export async function requireAuthForRoute(redirectTo: string) {
 	return user;
 }
 
+export async function redirectAuthenticatedFromAuthPages() {
+	const sessionCtx = await getSessionRedirectContextFn();
+
+	if (!shouldRedirectAuthenticatedFromAuthPage(sessionCtx)) {
+		return;
+	}
+
+	throw redirect({ to: resolvePostLoginRedirect(sessionCtx) });
+}
+
+export async function requireSetupPageForRoute(redirectTo: string) {
+	const sessionCtx = await getSessionRedirectContextFn();
+
+	if (!sessionCtx.authenticated) {
+		throw redirect({
+			to: "/login",
+			search: { redirect: redirectTo },
+		});
+	}
+
+	const target = resolvePostLoginRedirect(sessionCtx);
+
+	if (target === "/platform") {
+		throw redirect({ to: "/platform" });
+	}
+
+	if (target === "/register") {
+		throw redirect({ to: "/register" });
+	}
+
+	if (target === "/dashboard") {
+		throw redirect({ to: "/dashboard" });
+	}
+
+	if (sessionCtx.membershipRole !== BUSINESS_OWNER_ROLE) {
+		await throwPostLoginRedirect(redirectTo);
+	}
+}
+
+export async function requireDashboardPageForRoute(redirectTo: string) {
+	const sessionCtx = await getSessionRedirectContextFn();
+
+	if (!sessionCtx.authenticated) {
+		throw redirect({
+			to: "/login",
+			search: { redirect: redirectTo },
+		});
+	}
+
+	const target = resolvePostLoginRedirect(sessionCtx);
+
+	if (target === "/platform") {
+		throw redirect({ to: "/platform" });
+	}
+
+	if (target === "/register") {
+		throw redirect({ to: "/register" });
+	}
+
+	if (target === "/setup") {
+		throw redirect({ to: "/setup" });
+	}
+}
+
 export async function requireRoleForRoute(roles: Role[], redirectTo: string) {
 	const user = await requireAuthForRoute(redirectTo);
+	const sessionCtx = await getSessionRedirectContextFn();
+	const effectiveRole = sessionCtx.membershipRole ?? user.role;
 
-	if (!roles.includes(user.role)) {
-		throw redirect({ to: "/dashboard" });
+	if (!roles.includes(effectiveRole)) {
+		await throwPostLoginRedirect(redirectTo);
 	}
 
 	return user;
 }
 
-function redirectForTenantAuthError(error: unknown, redirectTo: string): never {
+async function redirectForTenantAuthError(
+	error: unknown,
+	redirectTo: string,
+): Promise<never> {
 	if (error instanceof Error && error.message === "UNAUTHORIZED") {
 		throw redirect({
 			to: "/login",
@@ -39,7 +128,7 @@ function redirectForTenantAuthError(error: unknown, redirectTo: string): never {
 	}
 
 	if (error instanceof Error && error.message === "FORBIDDEN") {
-		throw redirect({ to: "/dashboard" });
+		await throwPostLoginRedirect(redirectTo);
 	}
 
 	throw error;
@@ -60,7 +149,7 @@ export async function requireCatalogManagementTenantForRoute(
 	try {
 		return await ensureCatalogManagementTenantFn();
 	} catch (error) {
-		redirectForTenantAuthError(error, redirectTo);
+		await redirectForTenantAuthError(error, redirectTo);
 	}
 }
 
@@ -75,14 +164,14 @@ export async function requirePosOperationTenantForRoute(redirectTo: string) {
 	try {
 		return await ensurePosOperationTenantFn();
 	} catch (error) {
-		redirectForTenantAuthError(error, redirectTo);
+		await redirectForTenantAuthError(error, redirectTo);
 	}
 }
 
-function redirectForPlatformAuthError(
+async function redirectForPlatformAuthError(
 	error: unknown,
 	redirectTo: string,
-): never {
+): Promise<never> {
 	if (error instanceof Error && error.message === "UNAUTHORIZED") {
 		throw redirect({
 			to: "/login",
@@ -91,7 +180,7 @@ function redirectForPlatformAuthError(
 	}
 
 	if (error instanceof Error && error.message === "FORBIDDEN") {
-		throw redirect({ to: "/dashboard" });
+		await throwPostLoginRedirect(redirectTo);
 	}
 
 	throw error;
@@ -126,7 +215,7 @@ export async function requireBusinessPermissionForRoute(
 			error instanceof Error &&
 			(error.message === "FORBIDDEN" || error.message === "TENANT_NOT_FOUND")
 		) {
-			throw redirect({ to: "/dashboard" });
+			await throwPostLoginRedirect(redirectTo);
 		}
 
 		throw error;
@@ -141,6 +230,6 @@ export async function requirePlatformAdminForRoute(redirectTo: string) {
 	try {
 		return await ensurePlatformAdminFn();
 	} catch (error) {
-		redirectForPlatformAuthError(error, redirectTo);
+		await redirectForPlatformAuthError(error, redirectTo);
 	}
 }

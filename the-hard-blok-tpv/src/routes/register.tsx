@@ -1,9 +1,9 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { getAppUserFn } from "../features/auth/auth.rpc";
 import { isRegisterCustomerError } from "../features/auth/register.errors";
 import { registerCustomerOwnerFn } from "../features/auth/register.rpc";
+import { redirectAuthenticatedFromAuthPages } from "../features/auth/route-guards";
 
 type RegisterSearch = {
 	redirect?: string;
@@ -14,10 +14,7 @@ export const Route = createFileRoute("/register")({
 		redirect: typeof search.redirect === "string" ? search.redirect : undefined,
 	}),
 	beforeLoad: async () => {
-		const user = await getAppUserFn();
-		if (user) {
-			throw redirect({ to: "/dashboard" });
-		}
+		await redirectAuthenticatedFromAuthPages();
 	},
 	component: RegisterPage,
 });

@@ -1,6 +1,6 @@
 import { redirect } from "@tanstack/react-router";
 
-import { requireAuthForRoute } from "./route-guards";
+import { requireAuthForRoute, throwPostLoginRedirect } from "./route-guards";
 import type { Role } from "./types";
 
 /**
@@ -33,7 +33,7 @@ export async function requireBusinessRoleForRoute(
 			error instanceof Error &&
 			error.message === TENANT_AUTH_ERRORS.FORBIDDEN
 		) {
-			throw redirect({ to: "/dashboard" });
+			await throwPostLoginRedirect(redirectTo);
 		}
 
 		throw error;

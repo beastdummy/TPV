@@ -1,7 +1,8 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
 	getAppUserFn: vi.fn(),
+	getSessionRedirectContextFn: vi.fn(),
 	ensureCatalogManagementTenantFn: vi.fn(),
 	requireBusinessRole: vi.fn(),
 	redirect: vi.fn((opts: unknown) => {
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("./auth.rpc", () => ({
 	getAppUserFn: mocks.getAppUserFn,
+	getSessionRedirectContextFn: mocks.getSessionRedirectContextFn,
 	ensureCatalogManagementTenantFn: mocks.ensureCatalogManagementTenantFn,
 }));
 
@@ -42,12 +44,31 @@ const sessionUser = {
 	role: "manager" as const,
 };
 
+function mockIncompleteBusinessSession(
+	membershipRole: "owner" | "manager" | "cashier" = "cashier",
+) {
+	mocks.getSessionRedirectContextFn.mockResolvedValue({
+		authenticated: true,
+		hasBusinessMembership: true,
+		isPlatformOnly: false,
+		setupCompleted: false,
+		membershipRole,
+	});
+}
+
 describe("requireCatalogManagementTenantForRoute", () => {
 	afterEach(() => {
 		vi.clearAllMocks();
 	});
 
 	it("applies legacy guard then tenant RPC", async () => {
+		mocks.getSessionRedirectContextFn.mockResolvedValue({
+			authenticated: true,
+			hasBusinessMembership: true,
+			isPlatformOnly: false,
+			setupCompleted: true,
+			membershipRole: "admin",
+		});
 		mocks.getAppUserFn.mockResolvedValue({
 			...sessionUser,
 			role: "admin",
@@ -63,6 +84,7 @@ describe("requireCatalogManagementTenantForRoute", () => {
 	});
 
 	it("redirects when legacy users.role is cashier", async () => {
+		mockIncompleteBusinessSession("cashier");
 		mocks.getAppUserFn.mockResolvedValue({
 			...sessionUser,
 			role: "cashier",
@@ -72,13 +94,14 @@ describe("requireCatalogManagementTenantForRoute", () => {
 			requireCatalogManagementTenantForRoute("/admin/products"),
 		).rejects.toMatchObject({
 			message: "REDIRECT",
-			opts: { to: "/dashboard" },
+			opts: { to: "/setup" },
 		});
 
 		expect(mocks.ensureCatalogManagementTenantFn).not.toHaveBeenCalled();
 	});
 
-	it("redirects to dashboard when tenant RPC returns FORBIDDEN", async () => {
+	it("redirects to setup when tenant RPC returns FORBIDDEN", async () => {
+		mockIncompleteBusinessSession("manager");
 		mocks.getAppUserFn.mockResolvedValue(sessionUser);
 		mocks.ensureCatalogManagementTenantFn.mockRejectedValue(
 			new Error("FORBIDDEN"),
@@ -88,11 +111,18 @@ describe("requireCatalogManagementTenantForRoute", () => {
 			requireCatalogManagementTenantForRoute("/admin/products"),
 		).rejects.toMatchObject({
 			message: "REDIRECT",
-			opts: { to: "/dashboard" },
+			opts: { to: "/setup" },
 		});
 	});
 
 	it("allows legacy fallback when tenant RPC resolves with roleSource legacy", async () => {
+		mocks.getSessionRedirectContextFn.mockResolvedValue({
+			authenticated: true,
+			hasBusinessMembership: true,
+			isPlatformOnly: false,
+			setupCompleted: true,
+			membershipRole: "manager",
+		});
 		mocks.getAppUserFn.mockResolvedValue({
 			...sessionUser,
 			role: "manager",
@@ -115,6 +145,13 @@ describe("requireBusinessRoleForRoute (server)", () => {
 	});
 
 	it("returns tenant context when role is allowed", async () => {
+		mocks.getSessionRedirectContextFn.mockResolvedValue({
+			authenticated: true,
+			hasBusinessMembership: true,
+			isPlatformOnly: false,
+			setupCompleted: true,
+			membershipRole: "manager",
+		});
 		mocks.getAppUserFn.mockResolvedValue(sessionUser);
 		mocks.requireBusinessRole.mockResolvedValue({
 			user: sessionUser,
@@ -138,7 +175,8 @@ describe("requireBusinessRoleForRoute (server)", () => {
 		});
 	});
 
-	it("redirects to dashboard when forbidden", async () => {
+	it("redirects to setup when forbidden and setup is incomplete", async () => {
+		mockIncompleteBusinessSession("manager");
 		mocks.getAppUserFn.mockResolvedValue(sessionUser);
 		mocks.requireBusinessRole.mockRejectedValue(new Error("FORBIDDEN"));
 
@@ -146,7 +184,7 @@ describe("requireBusinessRoleForRoute (server)", () => {
 			requireBusinessRoleForRoute(["manager"], "/admin/products"),
 		).rejects.toMatchObject({
 			message: "REDIRECT",
-			opts: { to: "/dashboard" },
+			opts: { to: "/setup" },
 		});
 	});
 });
@@ -157,6 +195,13 @@ describe("requireCatalogManagementForRoute (server)", () => {
 	});
 
 	it("chains legacy and tenant guards", async () => {
+		mocks.getSessionRedirectContextFn.mockResolvedValue({
+			authenticated: true,
+			hasBusinessMembership: true,
+			isPlatformOnly: false,
+			setupCompleted: true,
+			membershipRole: "manager",
+		});
 		mocks.getAppUserFn.mockResolvedValue({
 			...sessionUser,
 			role: "manager",

@@ -54,6 +54,15 @@ export const signInDevOwnerFn = createServerFn({ method: "POST" }).handler(
 	},
 );
 
+export const getSessionRedirectContextFn = createServerFn({
+	method: "GET",
+}).handler(async () => {
+	const { getSessionRedirectContext } = await import(
+		"./post-login-redirect.server"
+	);
+	return await getSessionRedirectContext();
+});
+
 async function ensureRoleIn(allowedRoles: Role[]) {
 	const user = await getAppUserFn();
 
