@@ -70,7 +70,11 @@ describe("register customer", () => {
 
 	it("blocks duplicate email before sign-up", async () => {
 		mocks.getBusinessBySlug.mockResolvedValue(null);
-		mocks.query.mockResolvedValueOnce({ rows: [{ exists: 1 }] });
+		mocks.query
+			.mockResolvedValueOnce({
+				rows: [{ users: true, businesses: true, better_auth_user: true }],
+			})
+			.mockResolvedValueOnce({ rows: [{ exists: 1 }] });
 
 		await expect(registerCustomerOwner(validInput)).rejects.toMatchObject({
 			code: "EMAIL_ALREADY_EXISTS",
@@ -79,7 +83,11 @@ describe("register customer", () => {
 	});
 
 	it("blocks duplicate explicit business slug", async () => {
-		mocks.query.mockResolvedValueOnce({ rows: [] });
+		mocks.query
+			.mockResolvedValueOnce({
+				rows: [{ users: true, businesses: true, better_auth_user: true }],
+			})
+			.mockResolvedValueOnce({ rows: [] });
 		mocks.getBusinessBySlug.mockResolvedValue({
 			id: "biz-1",
 			slug: "cafe-ada",
@@ -98,6 +106,11 @@ describe("register customer", () => {
 	it("creates user, business and owner membership on success", async () => {
 		mocks.getRequestHeaders.mockReturnValue(new Headers());
 		mocks.query.mockImplementation(async (sql: string) => {
+			if (sql.includes("to_regclass")) {
+				return {
+					rows: [{ users: true, businesses: true, better_auth_user: true }],
+				};
+			}
 			if (sql === "BEGIN" || sql === "COMMIT" || sql === "ROLLBACK") {
 				return { rows: [] };
 			}
@@ -154,6 +167,11 @@ describe("register customer", () => {
 	it("does not create a second owner when business already has one", async () => {
 		mocks.getRequestHeaders.mockReturnValue(new Headers());
 		mocks.query.mockImplementation(async (sql: string) => {
+			if (sql.includes("to_regclass")) {
+				return {
+					rows: [{ users: true, businesses: true, better_auth_user: true }],
+				};
+			}
 			if (sql === "BEGIN" || sql === "ROLLBACK") {
 				return { rows: [] };
 			}
@@ -185,7 +203,11 @@ describe("register customer", () => {
 	});
 
 	it("maps Better Auth duplicate email to EMAIL_ALREADY_EXISTS", async () => {
-		mocks.query.mockResolvedValueOnce({ rows: [] });
+		mocks.query
+			.mockResolvedValueOnce({
+				rows: [{ users: true, businesses: true, better_auth_user: true }],
+			})
+			.mockResolvedValueOnce({ rows: [] });
 		mocks.getBusinessBySlug.mockResolvedValue(null);
 		mocks.signUpEmail.mockRejectedValue(
 			new APIError("UNPROCESSABLE_ENTITY", {
@@ -220,6 +242,11 @@ describe("register customer", () => {
 
 	it("repeated registration attempt keeps blocking duplicate email", async () => {
 		mocks.query.mockImplementation(async (sql: string) => {
+			if (sql.includes("to_regclass")) {
+				return {
+					rows: [{ users: true, businesses: true, better_auth_user: true }],
+				};
+			}
 			if (sql.includes("FROM users") && sql.includes("email")) {
 				return { rows: [{ exists: 1 }] };
 			}

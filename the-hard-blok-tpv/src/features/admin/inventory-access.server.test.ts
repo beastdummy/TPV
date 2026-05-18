@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
 	requireBusinessRole: vi.fn(),
 	getInventoryItems: vi.fn(),
+	getProductStockOverview: vi.fn(),
+	getAllStockMovements: vi.fn(),
 }));
 
 vi.mock("../auth/tenant-guards.server", () => ({
@@ -11,6 +13,8 @@ vi.mock("../auth/tenant-guards.server", () => ({
 
 vi.mock("../inventory/queries.server", () => ({
 	getInventoryItems: mocks.getInventoryItems,
+	getProductStockOverview: mocks.getProductStockOverview,
+	getAllStockMovements: mocks.getAllStockMovements,
 }));
 
 vi.mock("./warehouses-access.server", () => ({
@@ -87,11 +91,15 @@ describe("inventory-access.server (tenant-aware read)", () => {
 		vi.mocked(loadWarehousesForAdmin).mockResolvedValue([sampleWarehouse]);
 		vi.mocked(loadProductsForAdmin).mockResolvedValue([sampleProduct]);
 		mocks.getInventoryItems.mockResolvedValue([sampleRow]);
+		mocks.getProductStockOverview.mockResolvedValue([]);
+		mocks.getAllStockMovements.mockResolvedValue([]);
 
 		await expect(loadInventoryPageForAdmin()).resolves.toEqual({
 			warehouses: [sampleWarehouse],
 			products: [sampleProduct],
 			inventoryRows: [sampleRow],
+			stockRows: [],
+			stockMovements: [],
 		});
 	});
 

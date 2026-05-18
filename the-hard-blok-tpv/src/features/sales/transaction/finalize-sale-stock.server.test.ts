@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { SALES_TX_ERROR_CODES } from "./errors";
 import {
 	aggregateSaleLinesByProduct,
 	decrementStockForSale,
@@ -37,6 +36,15 @@ function createStockClient(initialStock: Record<string, number>) {
 		query: vi.fn(async (sql: string, params?: unknown[]) => {
 			const normalized = sql.replace(/\s+/g, " ").trim();
 
+			if (normalized.includes("INSERT INTO product_stock")) {
+				const productId = params?.[0] as string;
+				const key = `${productId}:${params?.[1]}`;
+				if (!stock.has(key)) {
+					stock.set(key, 0);
+				}
+				return { rows: [] };
+			}
+
 			if (
 				normalized.includes("FROM product_stock") &&
 				normalized.includes("FOR UPDATE")
@@ -44,7 +52,7 @@ function createStockClient(initialStock: Record<string, number>) {
 				const productId = params?.[0] as string;
 				const key = `${productId}:${params?.[1]}`;
 				if (!stock.has(key)) {
-					return { rows: [] };
+					stock.set(key, 0);
 				}
 				return { rows: [{ quantity: stock.get(key) }] };
 			}
@@ -65,7 +73,7 @@ function createStockClient(initialStock: Record<string, number>) {
 					previous_quantity: params?.[4] as number,
 					new_quantity: params?.[5] as number,
 					reason: params?.[6] as string,
-					performed_by_user_id: params?.[7] as string,
+					performed_by_user_id: params?.[10] as string,
 				});
 				return { rows: [] };
 			}
@@ -97,105 +105,78 @@ describe("finalize-sale-stock.server", () => {
 		]);
 	});
 
-	it("decrements stock and creates out movement for a sale", async () => {
+	it("decrements stock and creates sale movement", async () => {
 		const client = createStockClient({ [productA]: 10 });
 
-		await decrementStockForSale(client, {
-			warehouse_id: warehouseId,
-			user_id: userId,
-			sale_id: saleId,
-			lines: [{ product_id: productA, quantity: 3 }],
-		});
-
-		expect(client.getStock(productA)).toBe(7);
-		expect(client.getMovements()).toEqual([
-			{
-				product_id: productA,
-				warehouse_id: warehouseId,
-				movement_type: SALE_STOCK_MOVEMENT_TYPE,
-				quantity: 3,
-				previous_quantity: 10,
-				new_quantity: 7,
-				reason: `Venta ${saleId}`,
-				performed_by_user_id: userId,
-			},
-		]);
-	});
-
-	it("decrements once when several lines share the same product", async () => {
-		const client = createStockClient({ [productA]: 10 });
-
-		await decrementStockForSale(client, {
+		const negative = await decrementStockForSale(client, {
 			warehouse_id: warehouseId,
 			user_id: userId,
 			sale_id: saleId,
 			lines: [
-				{ product_id: productA, quantity: 2 },
-				{ product_id: productA, quantity: 1 },
+				{ product_id: productA, product_name: "Producto A", quantity: 3 },
 			],
 		});
 
 		expect(client.getStock(productA)).toBe(7);
-		expect(client.getMovements()).toHaveLength(1);
-		expect(client.getMovements()[0]?.quantity).toBe(3);
+		expect(negative).toEqual([]);
+		expect(client.getMovements()[0]?.movement_type).toBe(
+			SALE_STOCK_MOVEMENT_TYPE,
+		);
 	});
 
-	it("rejects when stock row does not exist", async () => {
+	it("allows sale with zero stock and returns negative_stock_items", async () => {
+		const client = createStockClient({ [productA]: 0 });
+
+		const negative = await decrementStockForSale(client, {
+			warehouse_id: warehouseId,
+			user_id: userId,
+			sale_id: saleId,
+			lines: [
+				{ product_id: productA, product_name: "Producto A", quantity: 12 },
+			],
+		});
+
+		expect(client.getStock(productA)).toBe(-12);
+		expect(negative).toEqual([
+			expect.objectContaining({
+				product_id: productA,
+				before_quantity: 0,
+				sold_quantity: 12,
+				after_quantity: -12,
+			}),
+		]);
+	});
+
+	it("allows partial stock and leaves negative balance", async () => {
+		const client = createStockClient({ [productA]: 3 });
+
+		const negative = await decrementStockForSale(client, {
+			warehouse_id: warehouseId,
+			user_id: userId,
+			sale_id: saleId,
+			lines: [
+				{ product_id: productA, product_name: "Producto A", quantity: 5 },
+			],
+		});
+
+		expect(client.getStock(productA)).toBe(-2);
+		expect(negative).toHaveLength(1);
+		expect(client.getMovements()).toHaveLength(1);
+	});
+
+	it("creates stock row when missing and allows negative", async () => {
 		const client = createStockClient({});
 
-		await expect(
-			decrementStockForSale(client, {
-				warehouse_id: warehouseId,
-				user_id: userId,
-				sale_id: saleId,
-				lines: [{ product_id: productA, quantity: 1 }],
-			}),
-		).rejects.toMatchObject({
-			code: SALES_TX_ERROR_CODES.STOCK_NOT_FOUND,
-		});
-		expect(client.getMovements()).toHaveLength(0);
-	});
-
-	it("rejects insufficient stock without persisting movement", async () => {
-		const client = createStockClient({ [productA]: 2 });
-
-		await expect(
-			decrementStockForSale(client, {
-				warehouse_id: warehouseId,
-				user_id: userId,
-				sale_id: saleId,
-				lines: [{ product_id: productA, quantity: 5 }],
-			}),
-		).rejects.toMatchObject({
-			code: SALES_TX_ERROR_CODES.INSUFFICIENT_STOCK,
+		const negative = await decrementStockForSale(client, {
+			warehouse_id: warehouseId,
+			user_id: userId,
+			sale_id: saleId,
+			lines: [
+				{ product_id: productA, product_name: "Producto A", quantity: 2 },
+			],
 		});
 
-		expect(client.getStock(productA)).toBe(2);
-		expect(client.getMovements()).toHaveLength(0);
-	});
-
-	it("rejects insufficient stock after partial multi-product decrement", async () => {
-		const client = createStockClient({
-			[productA]: 10,
-			[productB]: 1,
-		});
-
-		await expect(
-			decrementStockForSale(client, {
-				warehouse_id: warehouseId,
-				user_id: userId,
-				sale_id: saleId,
-				lines: [
-					{ product_id: productA, quantity: 1 },
-					{ product_id: productB, quantity: 3 },
-				],
-			}),
-		).rejects.toMatchObject({
-			code: SALES_TX_ERROR_CODES.INSUFFICIENT_STOCK,
-		});
-
-		expect(client.getStock(productA)).toBe(9);
-		expect(client.getStock(productB)).toBe(1);
-		expect(client.getMovements()).toHaveLength(1);
+		expect(client.getStock(productA)).toBe(-2);
+		expect(negative).toHaveLength(1);
 	});
 });

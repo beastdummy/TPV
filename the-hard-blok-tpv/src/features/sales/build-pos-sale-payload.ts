@@ -1,10 +1,13 @@
+import { isSalesTransactionError } from "./transaction/errors";
 import type { SaleLineInput } from "./transaction/types";
 import type { TicketItem } from "./use-ticket";
 
-/** Terminal y almacén POS por defecto (hasta configuración por negocio). */
+/** Terminal POS por defecto (hasta configuración por negocio). */
 export const POS_DEFAULT_TERMINAL_ID = "tpv-1";
-export const POS_DEFAULT_WAREHOUSE_ID = "principal";
 export const POS_DEFAULT_TAX_RATE_PERCENT = 10;
+
+/** @deprecated Usar almacén operativo resuelto en servidor — no hardcodear IDs. */
+export const POS_DEFAULT_WAREHOUSE_ID = "principal";
 
 export function buildFinalizeSaleLinesFromTicket(
 	items: TicketItem[],
@@ -21,6 +24,10 @@ export function buildFinalizeSaleLinesFromTicket(
 }
 
 export function getPosSaleErrorMessage(error: unknown): string {
+	if (isSalesTransactionError(error)) {
+		return error.message;
+	}
+
 	if (error instanceof Error && error.message) {
 		return error.message;
 	}

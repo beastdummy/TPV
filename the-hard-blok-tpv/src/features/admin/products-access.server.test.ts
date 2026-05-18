@@ -137,10 +137,11 @@ describe("products-access.server (tenant-aware)", () => {
 			role: "owner",
 			roleSource: "membership",
 		});
-		mocks.createProduct.mockResolvedValue(undefined);
+		mocks.createProduct.mockResolvedValue({ id: "prod-1" });
 
 		await expect(createProductForAdmin(sampleCreateInput)).resolves.toEqual({
 			ok: true,
+			productId: "prod-1",
 		});
 		expect(mocks.createProduct).toHaveBeenCalledWith(sampleCreateInput);
 	});
@@ -193,10 +194,11 @@ describe("products-access.server (tenant-aware)", () => {
 			roleSource: "legacy",
 			business: null,
 		});
-		mocks.createProduct.mockResolvedValue(undefined);
+		mocks.createProduct.mockResolvedValue({ id: "prod-legacy" });
 
 		await expect(createProductForAdmin(sampleCreateInput)).resolves.toEqual({
 			ok: true,
+			productId: "prod-legacy",
 		});
 	});
 });

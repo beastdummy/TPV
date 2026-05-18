@@ -2,6 +2,7 @@ export const REGISTER_ERROR_CODES = [
 	"EMAIL_ALREADY_EXISTS",
 	"BUSINESS_SLUG_ALREADY_EXISTS",
 	"INVALID_REGISTER_INPUT",
+	"DATABASE_NOT_READY",
 ] as const;
 
 export type RegisterErrorCode = (typeof REGISTER_ERROR_CODES)[number];

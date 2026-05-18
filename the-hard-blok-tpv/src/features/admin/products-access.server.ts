@@ -42,8 +42,8 @@ export type UpdateProductForAdminInput = CreateProductForAdminInput & {
 export async function createProductForAdmin(data: CreateProductForAdminInput) {
 	await ensureCatalogManagementBusinessRole();
 	const { createProduct } = await import("./queries.server");
-	await createProduct(data);
-	return { ok: true as const };
+	const { id } = await createProduct(data);
+	return { ok: true as const, productId: id };
 }
 
 export async function loadProductByIdForAdmin(productId: string) {

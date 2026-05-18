@@ -138,13 +138,21 @@ function AdminWarehousesPage() {
 							La gestión de stock, lotes, series y caducidad está centralizada
 							en la página de inventario.
 						</p>
-						<Link
-							to="/admin/inventory"
-							className="mt-3 inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition hover:bg-muted"
-						>
-							Ir a inventario
-							<ArrowRight className="h-4 w-4" />
-						</Link>
+						<div className="mt-3 flex flex-wrap gap-2">
+							<Link
+								to="/admin/inventory"
+								className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition hover:bg-muted"
+							>
+								Ir a inventario
+								<ArrowRight className="h-4 w-4" />
+							</Link>
+							<Link
+								to="/admin/replenishment"
+								className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm transition hover:bg-muted"
+							>
+								Listado de reposición
+							</Link>
+						</div>
 					</div>
 				</section>
 

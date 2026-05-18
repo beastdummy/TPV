@@ -190,6 +190,24 @@ export async function findRoleByNameForBusiness(params: {
 	return result.rows[0] ?? null;
 }
 
+export async function findRoleBySlugForBusiness(params: {
+	businessId: string;
+	slug: string;
+}) {
+	const result = await db.query<{ id: string; slug: string }>(
+		`
+    SELECT id, slug
+    FROM business_roles
+    WHERE business_id = $1
+      AND slug = $2
+    LIMIT 1
+    `,
+		[params.businessId, params.slug],
+	);
+
+	return result.rows[0] ?? null;
+}
+
 export async function getRolePermissionKeysForBusiness(params: {
 	businessId: string;
 	roleSlug: string;

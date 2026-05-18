@@ -14,7 +14,19 @@ if (!process.env.DATABASE_URL) {
 	throw new Error("DATABASE_URL is not set");
 }
 
+const sql = readFileSync(file, "utf8");
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-await pool.query(readFileSync(file, "utf8"));
-await pool.end();
-console.log(`Applied: ${file}`);
+
+try {
+	await pool.query(sql);
+	console.log(`Applied: ${file}`);
+} catch (error) {
+	const message = error instanceof Error ? error.message : String(error);
+	console.error(`Failed applying ${file}: ${message}`);
+	console.error(
+		"Si falló db/schema.sql, revisa que no haya FK a tablas de migraciones posteriores (p. ej. businesses).",
+	);
+	throw error;
+} finally {
+	await pool.end();
+}

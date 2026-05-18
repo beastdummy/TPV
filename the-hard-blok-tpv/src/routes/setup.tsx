@@ -6,35 +6,52 @@ import {
 } from "@tanstack/react-router";
 import { CheckCircle2, Circle } from "lucide-react";
 import { useMemo, useState } from "react";
-
+import {
+	SetupCreatedList,
+	SetupWizardNav,
+} from "../components/setup/setup-wizard-nav";
 import { requireRoleForRoute } from "../features/auth/route-guards";
 import type { Role } from "../features/auth/types";
 import {
+	completeSetupStaffStepFn,
 	confirmBusinessSetupDetailsFn,
 	finishBusinessSetupFn,
 	getBusinessSetupStateFn,
 	loadSetupWizardContextFn,
+	markCashConfiguredStepFn,
+	markInventoryReviewedStepFn,
 	setupCreateCategoryFn,
-	setupCreateDefaultSupplierFn,
+	setupCreateEmployeeFn,
 	setupCreateInitialStockFn,
 	setupCreateProductFn,
+	setupCreateQuickRoleFn,
 	setupCreateWarehouseFn,
 	setupOpenCashSessionFn,
+	setupSetOperationalWarehouseFn,
 } from "../features/business-setup/setup.rpc";
+import { ConfirmBusinessStepForm } from "../features/business-setup/setup-confirm-business-step";
+import { formatSetupRpcError } from "../features/business-setup/setup-errors";
+import {
+	getNextSetupStep,
+	getPreviousSetupStep,
+	getSetupContinueBlockedMessage,
+	snapshotFromSetupState,
+} from "../features/business-setup/setup-navigation";
+import { SETUP_QUICK_ROLE_PRESETS } from "../features/business-setup/setup-role-presets";
 import type { SetupStep } from "../features/business-setup/types";
 import { SETUP_STEPS } from "../features/business-setup/types";
-import { getInventoryItemsFn } from "../features/inventory/server-fns";
 
 const SETUP_ROLES: Role[] = ["owner"];
 
 const STEP_LABELS: Record<SetupStep, string> = {
 	confirm_business: "Datos del negocio",
-	warehouse: "Almacén principal",
+	warehouse: "Almacenes",
 	category: "Familia / categoría",
 	product: "Producto",
-	initial_stock: "Entrada de stock",
+	initial_stock: "Compra / entrada inicial",
 	review_inventory: "Revisar inventario",
 	configure_cash: "Configurar caja",
+	staff: "Empleados y roles (opcional)",
 	open_cash: "Abrir caja",
 	complete: "Listo para vender",
 };
@@ -48,11 +65,8 @@ export const Route = createFileRoute("/setup")({
 		}
 	},
 	loader: async () => {
-		const [wizard, inventoryItems] = await Promise.all([
-			loadSetupWizardContextFn(),
-			getInventoryItemsFn().catch(() => []),
-		]);
-		return { wizard, inventoryItems };
+		const wizard = await loadSetupWizardContextFn();
+		return { wizard };
 	},
 	component: SetupPage,
 });
@@ -72,37 +86,96 @@ function slugifyCategoryId(value: string) {
 }
 
 function SetupPage() {
-	const { wizard: initialWizard, inventoryItems } = Route.useLoaderData();
+	const { wizard: initialWizard } = Route.useLoaderData();
 	const router = useRouter();
 	const [wizard, setWizard] = useState(initialWizard);
+	const [activeStep, setActiveStep] = useState<SetupStep>(
+		initialWizard.setup.currentStep,
+	);
 	const [error, setError] = useState<string | null>(null);
 	const [isBusy, setIsBusy] = useState(false);
 
-	const currentStep = wizard.setup.currentStep;
-
-	const stepIndex = useMemo(
-		() => SETUP_STEPS.indexOf(currentStep),
-		[currentStep],
+	const requiredStep = wizard.setup.currentStep;
+	const setupSnapshot = useMemo(
+		() => snapshotFromSetupState(wizard.setup),
+		[wizard.setup],
 	);
 
-	async function refreshWizard() {
+	const stepIndex = useMemo(
+		() => SETUP_STEPS.indexOf(activeStep),
+		[activeStep],
+	);
+
+	async function refreshWizard(options?: { preserveActiveStep?: boolean }) {
 		const next = await loadSetupWizardContextFn();
 		setWizard(next);
+		setOperationalWarehouse(next.operationalWarehouse ?? null);
+		if (!options?.preserveActiveStep) {
+			setActiveStep(next.setup.currentStep);
+		}
 		await router.invalidate();
 	}
 
-	async function runStep(action: () => Promise<void>) {
+	function goBack() {
+		const previous = getPreviousSetupStep(activeStep);
+		if (previous) {
+			setActiveStep(previous);
+			setError(null);
+		}
+	}
+
+	function handleContinue() {
+		const blocked = getSetupContinueBlockedMessage(activeStep, setupSnapshot);
+		if (blocked) {
+			setError(blocked);
+			return;
+		}
+		const next = getNextSetupStep(activeStep);
+		if (next) {
+			setActiveStep(next);
+			setError(null);
+		}
+	}
+
+	function applyWizardResult(result: {
+		business?: (typeof wizard)["business"];
+		setup: (typeof wizard)["setup"];
+		operationalWarehouse?: { id: string; name: string } | null;
+		productStockLines?: (typeof wizard)["productStockLines"];
+		products?: (typeof wizard)["products"];
+		staff?: (typeof wizard)["staff"];
+	}) {
+		const nextOperational =
+			result.operationalWarehouse ?? wizard.operationalWarehouse;
+		if (result.operationalWarehouse) {
+			setOperationalWarehouse(result.operationalWarehouse);
+		}
+		setWizard((prev) => ({
+			business: result.business ?? prev.business,
+			setup: result.setup,
+			operationalWarehouse: nextOperational,
+			productStockLines: result.productStockLines ?? prev.productStockLines,
+			products: result.products ?? prev.products,
+			staff: result.staff ?? prev.staff,
+		}));
+	}
+
+	async function runStep(
+		action: () => Promise<void>,
+		options?: { preserveActiveStep?: boolean; advanceTo?: SetupStep },
+	) {
 		setError(null);
 		setIsBusy(true);
 		try {
 			await action();
-			await refreshWizard();
+			await refreshWizard({
+				preserveActiveStep: options?.preserveActiveStep ?? true,
+			});
+			if (options?.advanceTo) {
+				setActiveStep(options.advanceTo);
+			}
 		} catch (caught) {
-			setError(
-				caught instanceof Error
-					? caught.message
-					: "No se pudo completar el paso.",
-			);
+			setError(formatSetupRpcError(caught));
 		} finally {
 			setIsBusy(false);
 		}
@@ -113,14 +186,59 @@ function SetupPage() {
 		legal_name: initialWizard.business.legal_name,
 		timezone: initialWizard.business.timezone,
 	});
-	const [warehouseName, setWarehouseName] = useState("Almacén principal");
+	const [warehouseName, setWarehouseName] = useState("");
+	const [operationalWarehouse, setOperationalWarehouse] = useState(
+		initialWizard.operationalWarehouse,
+	);
 	const [categoryName, setCategoryName] = useState("General");
+	const [selectedCategoryId, setSelectedCategoryId] = useState(
+		initialWizard.categories[0]?.id ?? "",
+	);
 	const [productForm, setProductForm] = useState({
 		name: "",
 		price: "1.00",
 	});
-	const [stockQty, setStockQty] = useState("10");
+	const [stockForm, setStockForm] = useState({
+		productId: "",
+		quantity: "10",
+		unitCost: "",
+		supplierId: "",
+		reason: "initial_stock" as "initial_purchase" | "initial_stock",
+	});
 	const [openingFloat, setOpeningFloat] = useState("0");
+	const [employeeForm, setEmployeeForm] = useState({
+		name: "",
+		email: "",
+		role_slug: "",
+		pin: "",
+	});
+
+	const productStockLines = wizard.productStockLines;
+	const setupProducts = wizard.products;
+	const setupCategories = wizard.categories;
+	const setupStaff = wizard.staff;
+	const assignableRoles =
+		setupStaff.roles.length > 0
+			? setupStaff.roles
+			: [{ slug: "cashier", name: "Cajero (legacy)" }];
+	const selectedEmployeeRole =
+		employeeForm.role_slug || assignableRoles[0]?.slug || "cashier";
+	const canGoBack = getPreviousSetupStep(activeStep) !== null;
+
+	async function finishStaffStep(advanceTo: SetupStep = "open_cash") {
+		await runStep(
+			async () => {
+				const result = await completeSetupStaffStepFn();
+				applyWizardResult({ setup: result.setup, staff: result.staff });
+			},
+			{ preserveActiveStep: false, advanceTo },
+		);
+	}
+
+	const btnPrimary =
+		"rounded-2xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50";
+	const btnSecondary =
+		"rounded-2xl border bg-background px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50";
 
 	return (
 		<div className="min-h-screen bg-muted/30 px-4 py-10">
@@ -135,7 +253,7 @@ function SetupPage() {
 							{SETUP_STEPS.filter((s) => s !== "complete").map(
 								(step, index) => {
 									const done = wizard.setup.completedSteps.includes(step);
-									const active = step === currentStep;
+									const active = step === activeStep;
 									return (
 										<li
 											key={step}
@@ -163,92 +281,172 @@ function SetupPage() {
 
 				<main className="min-w-0 flex-1 rounded-3xl border bg-card p-6">
 					<p className="text-sm text-muted-foreground">
-						Paso {Math.min(stepIndex + 1, 9)} de 9
+						Paso {Math.min(stepIndex + 1, 10)} de 10
 					</p>
 					<h2 className="mt-1 text-2xl font-semibold">
-						{STEP_LABELS[currentStep]}
+						{STEP_LABELS[activeStep]}
 					</h2>
+					{activeStep !== requiredStep ? (
+						<p className="mt-1 text-xs text-amber-800">
+							Paso pendiente mínimo: {STEP_LABELS[requiredStep]}
+						</p>
+					) : null}
 
-					{error ? (
-						<p className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+					{error && activeStep !== "confirm_business" ? (
+						<p
+							role="alert"
+							className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+						>
 							{error}
 						</p>
 					) : null}
 
 					<div className="mt-6 space-y-4">
-						{currentStep === "confirm_business" ? (
-							<>
-								<label className="block space-y-1 text-sm">
-									<span className="font-medium">Nombre comercial</span>
-									<input
-										className="w-full rounded-2xl border px-3 py-2"
-										value={businessForm.name}
-										onChange={(e) =>
-											setBusinessForm((f) => ({ ...f, name: e.target.value }))
-										}
-									/>
-								</label>
-								<label className="block space-y-1 text-sm">
-									<span className="font-medium">Razón social (opcional)</span>
-									<input
-										className="w-full rounded-2xl border px-3 py-2"
-										value={businessForm.legal_name}
-										onChange={(e) =>
-											setBusinessForm((f) => ({
-												...f,
-												legal_name: e.target.value,
-											}))
-										}
-									/>
-								</label>
-								<button
-									type="button"
-									disabled={isBusy}
-									className="rounded-2xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-									onClick={() =>
-										runStep(async () => {
-											await confirmBusinessSetupDetailsFn({
-												data: businessForm,
+						{activeStep === "confirm_business" ? (
+							<ConfirmBusinessStepForm
+								values={businessForm}
+								error={error}
+								isBusy={isBusy}
+								onChange={setBusinessForm}
+								onSubmit={(values) =>
+									runStep(
+										async () => {
+											const result = await confirmBusinessSetupDetailsFn({
+												data: values,
 											});
-										})
-									}
-								>
-									Confirmar y continuar
-								</button>
-							</>
+											applyWizardResult(result);
+											setBusinessForm({
+												name: result.business.name,
+												legal_name: result.business.legal_name,
+												timezone: result.business.timezone,
+											});
+										},
+										{
+											preserveActiveStep: false,
+											advanceTo: "warehouse",
+										},
+									)
+								}
+							/>
 						) : null}
 
-						{currentStep === "warehouse" ? (
+						{activeStep === "warehouse" ? (
 							<>
+								<p className="text-sm text-muted-foreground">
+									Crea el almacén principal y, si quieres, almacenes
+									adicionales. Marca cuál es el operativo (ventas y stock
+									inicial).
+								</p>
+								<SetupCreatedList
+									title="Almacenes creados"
+									items={wizard.warehouses.map((warehouse) => {
+										const tags = [
+											warehouse.is_operational ? "operativo" : null,
+											warehouse.is_default ? "por defecto" : null,
+										].filter(Boolean);
+										return tags.length > 0
+											? `${warehouse.name} (${tags.join(", ")})`
+											: warehouse.name;
+									})}
+									emptyLabel="Aún no hay almacenes."
+								/>
+								{wizard.warehouses.length > 0 ? (
+									<fieldset className="space-y-2 rounded-2xl border bg-muted/20 p-4 text-sm">
+										<legend className="px-1 font-medium">
+											Almacén operativo
+										</legend>
+										{wizard.warehouses.map((warehouse) => (
+											<label
+												key={warehouse.id}
+												className="flex cursor-pointer items-center gap-2"
+											>
+												<input
+													type="radio"
+													name="operational-warehouse"
+													checked={
+														(operationalWarehouse?.id ?? "") === warehouse.id
+													}
+													disabled={isBusy}
+													onChange={() =>
+														runStep(async () => {
+															const result =
+																await setupSetOperationalWarehouseFn({
+																	data: { warehouse_id: warehouse.id },
+																});
+															setOperationalWarehouse({
+																id: result.warehouseId,
+																name: result.warehouseName,
+															});
+														})
+													}
+												/>
+												<span>{warehouse.name}</span>
+											</label>
+										))}
+									</fieldset>
+								) : null}
 								<label className="block space-y-1 text-sm">
 									<span className="font-medium">Nombre del almacén</span>
 									<input
 										className="w-full rounded-2xl border px-3 py-2"
+										placeholder="Ej: Barra"
 										value={warehouseName}
 										onChange={(e) => setWarehouseName(e.target.value)}
 									/>
 								</label>
-								<button
-									type="button"
-									disabled={isBusy}
-									className="rounded-2xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-									onClick={() =>
-										runStep(async () => {
-											const id = normalizeWarehouseId(warehouseName);
-											if (!id) throw new Error("Nombre de almacén inválido.");
-											await setupCreateWarehouseFn({
-												data: { id, name: warehouseName.trim() },
-											});
-										})
+								<SetupWizardNav
+									showBack={canGoBack}
+									onBack={goBack}
+									secondaryActions={
+										<button
+											type="button"
+											disabled={isBusy || !warehouseName.trim()}
+											className={btnSecondary}
+											onClick={() =>
+												runStep(async () => {
+													const id = normalizeWarehouseId(warehouseName);
+													if (!id) {
+														throw new Error("Nombre de almacén inválido.");
+													}
+													const created = await setupCreateWarehouseFn({
+														data: { id, name: warehouseName.trim() },
+													});
+													if (created.isOperational) {
+														setOperationalWarehouse({
+															id: created.warehouseId,
+															name: created.warehouseName,
+														});
+													}
+													setWarehouseName("");
+												})
+											}
+										>
+											{wizard.warehouses.length === 0
+												? "Crear almacén principal"
+												: "Crear otro almacén"}
+										</button>
 									}
-								>
-									Crear almacén
-								</button>
+									primaryActions={
+										<button
+											type="button"
+											disabled={isBusy}
+											className={btnPrimary}
+											onClick={handleContinue}
+										>
+											Continuar a familias
+										</button>
+									}
+								/>
 							</>
 						) : null}
 
-						{currentStep === "category" ? (
+						{activeStep === "category" ? (
 							<>
+								<SetupCreatedList
+									title="Familias creadas"
+									items={setupCategories.map((c) => c.name)}
+									emptyLabel="Aún no hay familias."
+								/>
 								<label className="block space-y-1 text-sm">
 									<span className="font-medium">Nombre de la familia</span>
 									<input
@@ -257,32 +455,79 @@ function SetupPage() {
 										onChange={(e) => setCategoryName(e.target.value)}
 									/>
 								</label>
-								<button
-									type="button"
-									disabled={isBusy}
-									className="rounded-2xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-									onClick={() =>
-										runStep(async () => {
-											const id = slugifyCategoryId(categoryName);
-											await setupCreateCategoryFn({
-												data: {
-													id,
-													name: categoryName.trim(),
-													description: "",
-													sort_order: 0,
-													is_active: true,
-												},
-											});
-										})
+								<SetupWizardNav
+									showBack={canGoBack}
+									onBack={goBack}
+									secondaryActions={
+										<>
+											<button
+												type="button"
+												disabled={isBusy || !categoryName.trim()}
+												className={btnSecondary}
+												onClick={() =>
+													runStep(async () => {
+														const id = slugifyCategoryId(categoryName);
+														await setupCreateCategoryFn({
+															data: {
+																id,
+																name: categoryName.trim(),
+																description: "",
+																sort_order: 0,
+																is_active: true,
+															},
+														});
+														setSelectedCategoryId(id);
+														setCategoryName("");
+													})
+												}
+											>
+												Crear otra familia
+											</button>
+										</>
 									}
-								>
-									Crear categoría
-								</button>
+									primaryActions={
+										<button
+											type="button"
+											disabled={isBusy}
+											className={btnPrimary}
+											onClick={handleContinue}
+										>
+											Continuar a producto
+										</button>
+									}
+								/>
 							</>
 						) : null}
 
-						{currentStep === "product" ? (
+						{activeStep === "product" ? (
 							<>
+								<p className="text-sm text-muted-foreground">
+									Solo crea el producto (sin cantidad). El stock se registrará
+									en el siguiente paso.
+								</p>
+								<SetupCreatedList
+									title="Productos creados"
+									items={setupProducts.map((p) => p.name)}
+									emptyLabel="Aún no hay productos."
+								/>
+								<label className="block space-y-1 text-sm">
+									<span className="font-medium">Familia</span>
+									<select
+										className="w-full rounded-2xl border px-3 py-2"
+										value={selectedCategoryId || setupCategories[0]?.id || ""}
+										onChange={(e) => setSelectedCategoryId(e.target.value)}
+									>
+										{setupCategories.length === 0 ? (
+											<option value="">Crea una familia antes</option>
+										) : (
+											setupCategories.map((category) => (
+												<option key={category.id} value={category.id}>
+													{category.name}
+												</option>
+											))
+										)}
+									</select>
+								</label>
 								<label className="block space-y-1 text-sm">
 									<span className="font-medium">Nombre del producto</span>
 									<input
@@ -303,130 +548,299 @@ function SetupPage() {
 										}
 									/>
 								</label>
-								<button
-									type="button"
-									disabled={isBusy}
-									className="rounded-2xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-									onClick={() =>
-										runStep(async () => {
-											const categoryId = slugifyCategoryId(categoryName);
-											const warehouseId =
-												normalizeWarehouseId(warehouseName) ||
-												"almacen-principal";
-											await setupCreateProductFn({
-												data: {
-													name: productForm.name.trim(),
-													description: "",
-													price: Number.parseFloat(productForm.price) || 0,
-													category_id: categoryId,
-													image_url: "",
-													tax_rate: 10,
-													warehouse: warehouseId,
-													sort_order: 0,
-												},
-											});
-										})
+								<SetupWizardNav
+									showBack={canGoBack}
+									onBack={goBack}
+									secondaryActions={
+										<button
+											type="button"
+											disabled={
+												isBusy ||
+												!productForm.name.trim() ||
+												setupCategories.length === 0
+											}
+											className={btnSecondary}
+											onClick={() =>
+												runStep(async () => {
+													if (!operationalWarehouse?.id) {
+														throw new Error(
+															"Crea el almacén principal antes del producto.",
+														);
+													}
+													const categoryId =
+														selectedCategoryId || setupCategories[0]?.id;
+													if (!categoryId) {
+														throw new Error("Selecciona una familia.");
+													}
+													const created = await setupCreateProductFn({
+														data: {
+															name: productForm.name.trim(),
+															description: "",
+															price: Number.parseFloat(productForm.price) || 0,
+															category_id: categoryId,
+															image_url: "",
+															tax_rate: 10,
+															warehouse: operationalWarehouse.id,
+															sort_order: 0,
+														},
+													});
+													setStockForm((form) => ({
+														...form,
+														productId: created.productId,
+														unitCost: productForm.price,
+													}));
+													setProductForm({ name: "", price: "1.00" });
+												})
+											}
+										>
+											Crear otro producto
+										</button>
 									}
-								>
-									Crear producto
-								</button>
+									primaryActions={
+										<button
+											type="button"
+											disabled={isBusy}
+											className={btnPrimary}
+											onClick={handleContinue}
+										>
+											Continuar a compra / entrada inicial
+										</button>
+									}
+								/>
 							</>
 						) : null}
 
-						{currentStep === "initial_stock" ? (
+						{activeStep === "initial_stock" ? (
 							<>
 								<p className="text-sm text-muted-foreground">
-									Registra la primera entrada de stock con una compra inicial.
+									Registra la primera compra o entrada en{" "}
+									<strong>
+										{operationalWarehouse?.name ?? "el almacén operativo"}
+									</strong>
+									. Sin este paso no podrás revisar inventario.
 								</p>
 								<label className="block space-y-1 text-sm">
-									<span className="font-medium">Cantidad inicial</span>
-									<input
+									<span className="font-medium">Producto</span>
+									<select
 										className="w-full rounded-2xl border px-3 py-2"
-										value={stockQty}
-										onChange={(e) => setStockQty(e.target.value)}
+										value={stockForm.productId || setupProducts[0]?.id || ""}
+										onChange={(e) =>
+											setStockForm((form) => ({
+												...form,
+												productId: e.target.value,
+											}))
+										}
+									>
+										{setupProducts.length === 0 ? (
+											<option value="">Crea un producto antes</option>
+										) : (
+											setupProducts.map((product) => (
+												<option key={product.id} value={product.id}>
+													{product.name}
+												</option>
+											))
+										)}
+									</select>
+								</label>
+								<label className="block space-y-1 text-sm">
+									<span className="font-medium">Cantidad</span>
+									<input
+										type="number"
+										min="0.001"
+										step="0.001"
+										className="w-full rounded-2xl border px-3 py-2"
+										value={stockForm.quantity}
+										onChange={(e) =>
+											setStockForm((form) => ({
+												...form,
+												quantity: e.target.value,
+											}))
+										}
 									/>
 								</label>
-								<button
-									type="button"
-									disabled={isBusy}
-									className="rounded-2xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-									onClick={() =>
-										runStep(async () => {
-											const supplier = await setupCreateDefaultSupplierFn({
-												data: { name: "Proveedor inicial" },
-											});
-											const qty = Number.parseFloat(stockQty) || 0;
-											if (qty <= 0) {
-												throw new Error("La cantidad debe ser mayor que cero.");
-											}
-											const { getWarehousesForAdminFn } = await import(
-												"../features/admin/warehouses.server-fns"
-											);
-											const { getProductsForAdminFn } = await import(
-												"../features/admin/products.server-fns"
-											);
-											const [warehouses, products] = await Promise.all([
-												getWarehousesForAdminFn(),
-												getProductsForAdminFn(),
-											]);
-											const warehouse = warehouses[0];
-											const product = products[0];
-											if (!warehouse || !product) {
-												throw new Error(
-													"Faltan almacén o producto. Completa los pasos anteriores.",
-												);
-											}
-											await setupCreateInitialStockFn({
-												data: {
-													supplier_id: supplier.supplierId,
-													warehouse_id: warehouse.id,
-													product_id: product.id,
-													quantity: qty,
-													unit_cost: Number.parseFloat(productForm.price) || 0,
-													notes: "Stock inicial — configuración",
-												},
-											});
-										})
-									}
-								>
-									Registrar entrada de stock
-								</button>
-							</>
-						) : null}
-
-						{currentStep === "review_inventory" ? (
-							<>
-								<p className="text-sm text-muted-foreground">
-									Revisa que el inventario refleja tu stock inicial.
-								</p>
-								<ul className="rounded-2xl border bg-muted/20 p-4 text-sm">
-									{inventoryItems.length === 0 ? (
-										<li>No hay líneas de inventario todavía.</li>
-									) : (
-										inventoryItems.slice(0, 8).map((row) => (
-											<li key={`${row.product_id}-${row.warehouse_id}`}>
-												{row.product_name}: {row.qty_on_hand} uds.
-											</li>
-										))
+								<label className="block space-y-1 text-sm">
+									<span className="font-medium">
+										Coste unitario (€, opcional)
+									</span>
+									<input
+										type="number"
+										min="0"
+										step="0.01"
+										className="w-full rounded-2xl border px-3 py-2"
+										value={stockForm.unitCost}
+										onChange={(e) =>
+											setStockForm((form) => ({
+												...form,
+												unitCost: e.target.value,
+											}))
+										}
+									/>
+								</label>
+								<label className="block space-y-1 text-sm">
+									<span className="font-medium">Proveedor (opcional)</span>
+									<select
+										className="w-full rounded-2xl border px-3 py-2"
+										value={stockForm.supplierId}
+										onChange={(e) =>
+											setStockForm((form) => ({
+												...form,
+												supplierId: e.target.value,
+											}))
+										}
+									>
+										<option value="">Sin proveedor</option>
+										{wizard.suppliers.map((supplier) => (
+											<option key={supplier.id} value={supplier.id}>
+												{supplier.name}
+											</option>
+										))}
+									</select>
+								</label>
+								<label className="block space-y-1 text-sm">
+									<span className="font-medium">Motivo</span>
+									<select
+										className="w-full rounded-2xl border px-3 py-2"
+										value={stockForm.reason}
+										onChange={(e) =>
+											setStockForm((form) => ({
+												...form,
+												reason: e.target.value as
+													| "initial_purchase"
+													| "initial_stock",
+											}))
+										}
+									>
+										<option value="initial_stock">Entrada inicial</option>
+										<option value="initial_purchase">Compra inicial</option>
+									</select>
+								</label>
+								<SetupCreatedList
+									title="Entradas de stock registradas"
+									items={productStockLines.map(
+										(row) =>
+											`${row.product_name} · ${row.warehouse_name}: ${row.quantity} uds.`,
 									)}
-								</ul>
-								<button
-									type="button"
-									disabled={isBusy}
-									className="rounded-2xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-									onClick={() => refreshWizard()}
-								>
-									Continuar
-								</button>
+									emptyLabel="Aún no hay entradas de stock."
+								/>
+								<SetupWizardNav
+									showBack={canGoBack}
+									onBack={goBack}
+									secondaryActions={
+										<button
+											type="button"
+											disabled={isBusy || setupProducts.length === 0}
+											className={btnSecondary}
+											onClick={() =>
+												runStep(async () => {
+													const productId =
+														stockForm.productId || setupProducts[0]?.id;
+													const qty =
+														Number.parseFloat(stockForm.quantity) || 0;
+													if (!productId) {
+														throw new Error("Selecciona un producto.");
+													}
+													if (qty <= 0) {
+														throw new Error(
+															"La cantidad debe ser mayor que cero.",
+														);
+													}
+													if (!operationalWarehouse?.id) {
+														throw new Error("Falta el almacén operativo.");
+													}
+													await setupCreateInitialStockFn({
+														data: {
+															product_id: productId,
+															quantity: qty,
+															unit_cost:
+																Number.parseFloat(stockForm.unitCost) || 0,
+															supplier_id: stockForm.supplierId || null,
+															reason: stockForm.reason,
+															notes: "Entrada inicial — configuración",
+														},
+													});
+												})
+											}
+										>
+											Añadir otra entrada
+										</button>
+									}
+									primaryActions={
+										<button
+											type="button"
+											disabled={isBusy}
+											className={btnPrimary}
+											onClick={handleContinue}
+										>
+											Revisar inventario
+										</button>
+									}
+								/>
 							</>
 						) : null}
 
-						{(currentStep === "configure_cash" ||
-							currentStep === "open_cash") &&
-						!wizard.setup.hasOpenCashSession ? (
+						{activeStep === "review_inventory" ? (
 							<>
 								<p className="text-sm text-muted-foreground">
-									Indica el fondo inicial de caja y ábrela para poder vender.
+									Revisa el stock registrado en product_stock (almacén
+									operativo).
+								</p>
+								<SetupCreatedList
+									title="Stock registrado"
+									items={productStockLines.map(
+										(row) =>
+											`${row.product_name} · ${row.warehouse_name}: ${row.quantity} uds.`,
+									)}
+									emptyLabel="No hay stock registrado. Vuelve al paso anterior para registrar una entrada."
+								/>
+								<SetupWizardNav
+									showBack={canGoBack}
+									onBack={goBack}
+									primaryActions={
+										productStockLines.length > 0 ? (
+											<button
+												type="button"
+												disabled={isBusy}
+												className={btnPrimary}
+												onClick={() =>
+													runStep(
+														async () => {
+															const result =
+																await markInventoryReviewedStepFn();
+															applyWizardResult({
+																setup: result.setup,
+																productStockLines: result.productStockLines,
+															});
+														},
+														{
+															preserveActiveStep: false,
+															advanceTo: "configure_cash",
+														},
+													)
+												}
+											>
+												Continuar
+											</button>
+										) : (
+											<button
+												type="button"
+												className={btnSecondary}
+												onClick={() => {
+													setActiveStep("initial_stock");
+													setError(null);
+												}}
+											>
+												Volver a compra / entrada inicial
+											</button>
+										)
+									}
+								/>
+							</>
+						) : null}
+
+						{activeStep === "configure_cash" ? (
+							<>
+								<p className="text-sm text-muted-foreground">
+									Indica el fondo inicial de caja para este TPV.
 								</p>
 								<label className="block space-y-1 text-sm">
 									<span className="font-medium">Fondo inicial (€)</span>
@@ -436,26 +850,247 @@ function SetupPage() {
 										onChange={(e) => setOpeningFloat(e.target.value)}
 									/>
 								</label>
-								<button
-									type="button"
-									disabled={isBusy}
-									className="rounded-2xl border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-									onClick={() =>
-										runStep(async () => {
-											await setupOpenCashSessionFn({
-												data: {
-													opening_float: Number.parseFloat(openingFloat) || 0,
-												},
-											});
-										})
+								<SetupWizardNav
+									showBack={canGoBack}
+									onBack={goBack}
+									primaryActions={
+										<button
+											type="button"
+											disabled={isBusy}
+											className={btnPrimary}
+											onClick={() =>
+												runStep(
+													async () => {
+														const result = await markCashConfiguredStepFn({
+															data: {
+																opening_float:
+																	Number.parseFloat(openingFloat) || 0,
+															},
+														});
+														applyWizardResult({ setup: result.setup });
+													},
+													{
+														preserveActiveStep: false,
+														advanceTo: "staff",
+													},
+												)
+											}
+										>
+											Guardar y continuar
+										</button>
 									}
-								>
-									Abrir caja
-								</button>
+								/>
 							</>
 						) : null}
 
-						{currentStep === "complete" || wizard.setup.hasOpenCashSession ? (
+						{activeStep === "staff" ? (
+							<>
+								<p className="text-sm text-muted-foreground">
+									Opcional: crea empleados con PIN y roles ahora, o configúralos
+									más tarde en administración. El propietario puede vender solo
+									con su PIN.
+								</p>
+								<SetupCreatedList
+									title="Empleados creados"
+									items={setupStaff.employees.map(
+										(employee) =>
+											`${employee.name} · ${employee.role_name}${employee.has_pin ? " · PIN" : ""}`,
+									)}
+									emptyLabel="Sin empleados extra todavía."
+								/>
+								{!setupStaff.hasCustomRoles ? (
+									<div className="space-y-2 rounded-2xl border bg-muted/20 p-4">
+										<p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+											Roles rápidos (opcional)
+										</p>
+										<div className="flex flex-wrap gap-2">
+											{SETUP_QUICK_ROLE_PRESETS.map((preset) => (
+												<button
+													key={preset.key}
+													type="button"
+													disabled={isBusy}
+													className={btnSecondary}
+													onClick={() =>
+														runStep(async () => {
+															const result = await setupCreateQuickRoleFn({
+																data: { preset: preset.key },
+															});
+															applyWizardResult({ staff: result.staff });
+															setEmployeeForm((form) => ({
+																...form,
+																role_slug: preset.slug,
+															}));
+														})
+													}
+												>
+													{preset.name}
+												</button>
+											))}
+										</div>
+									</div>
+								) : null}
+								<div className="grid gap-3 sm:grid-cols-2">
+									<label className="block space-y-1 text-sm sm:col-span-2">
+										<span className="font-medium">Nombre</span>
+										<input
+											className="w-full rounded-2xl border px-3 py-2"
+											value={employeeForm.name}
+											onChange={(e) =>
+												setEmployeeForm((form) => ({
+													...form,
+													name: e.target.value,
+												}))
+											}
+										/>
+									</label>
+									<label className="block space-y-1 text-sm sm:col-span-2">
+										<span className="font-medium">Email</span>
+										<input
+											type="email"
+											className="w-full rounded-2xl border px-3 py-2"
+											value={employeeForm.email}
+											onChange={(e) =>
+												setEmployeeForm((form) => ({
+													...form,
+													email: e.target.value,
+												}))
+											}
+										/>
+									</label>
+									<label className="block space-y-1 text-sm">
+										<span className="font-medium">Rol</span>
+										<select
+											className="w-full rounded-2xl border px-3 py-2"
+											value={selectedEmployeeRole}
+											onChange={(e) =>
+												setEmployeeForm((form) => ({
+													...form,
+													role_slug: e.target.value,
+												}))
+											}
+										>
+											{assignableRoles.map((role) => (
+												<option key={role.slug} value={role.slug}>
+													{role.name}
+												</option>
+											))}
+										</select>
+									</label>
+									<label className="block space-y-1 text-sm">
+										<span className="font-medium">PIN TPV (4-8 dígitos)</span>
+										<input
+											type="password"
+											inputMode="numeric"
+											className="w-full rounded-2xl border px-3 py-2"
+											value={employeeForm.pin}
+											onChange={(e) =>
+												setEmployeeForm((form) => ({
+													...form,
+													pin: e.target.value,
+												}))
+											}
+										/>
+									</label>
+								</div>
+								<SetupWizardNav
+									showBack={canGoBack}
+									onBack={goBack}
+									secondaryActions={
+										<>
+											<button
+												type="button"
+												disabled={
+													isBusy ||
+													!employeeForm.name.trim() ||
+													!employeeForm.email.trim() ||
+													!/^\d{4,8}$/.test(employeeForm.pin)
+												}
+												className={btnSecondary}
+												onClick={() =>
+													runStep(async () => {
+														const result = await setupCreateEmployeeFn({
+															data: {
+																name: employeeForm.name.trim(),
+																email: employeeForm.email.trim(),
+																role_slug: selectedEmployeeRole,
+																pin: employeeForm.pin,
+															},
+														});
+														applyWizardResult({ staff: result.staff });
+														setEmployeeForm({
+															name: "",
+															email: "",
+															role_slug: selectedEmployeeRole,
+															pin: "",
+														});
+													})
+												}
+											>
+												Crear empleado
+											</button>
+											<button
+												type="button"
+												disabled={isBusy}
+												className={btnSecondary}
+												onClick={() => finishStaffStep("open_cash")}
+											>
+												Saltar por ahora
+											</button>
+										</>
+									}
+									primaryActions={
+										<button
+											type="button"
+											disabled={isBusy}
+											className={btnPrimary}
+											onClick={() => finishStaffStep("open_cash")}
+										>
+											Continuar
+										</button>
+									}
+								/>
+							</>
+						) : null}
+
+						{activeStep === "open_cash" ? (
+							<>
+								<p className="text-sm text-muted-foreground">
+									Abre la sesión de caja con fondo inicial de{" "}
+									{openingFloat || "0"} €.
+								</p>
+								<SetupWizardNav
+									showBack={canGoBack}
+									onBack={goBack}
+									primaryActions={
+										<button
+											type="button"
+											disabled={isBusy}
+											className={btnPrimary}
+											onClick={() =>
+												runStep(
+													async () => {
+														await setupOpenCashSessionFn({
+															data: {
+																opening_float:
+																	Number.parseFloat(openingFloat) || 0,
+															},
+														});
+													},
+													{
+														preserveActiveStep: false,
+														advanceTo: "complete",
+													},
+												)
+											}
+										>
+											Abrir caja
+										</button>
+									}
+								/>
+							</>
+						) : null}
+
+						{activeStep === "complete" ? (
 							<>
 								<p className="text-sm text-muted-foreground">
 									¡Tu TPV está listo! Abre ventas con tu PIN de propietario.

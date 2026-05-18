@@ -148,5 +148,23 @@ export async function finalizeSale(
 	);
 	await auditSaleFinalized(result.sale_id);
 
+	if (result.negative_stock_items?.length) {
+		const { auditNegativeStockSale } = await import(
+			"../inventory/inventory-audit.server"
+		);
+		await auditNegativeStockSale(
+			{
+				businessId,
+				actorUserId: operatorUserId,
+				actorMemberId: operator.membershipId,
+			},
+			{
+				saleId: result.sale_id,
+				warehouseId: input.warehouse_id.trim(),
+				items: result.negative_stock_items,
+			},
+		);
+	}
+
 	return result;
 }

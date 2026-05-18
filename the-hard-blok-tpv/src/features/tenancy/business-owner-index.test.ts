@@ -84,6 +84,11 @@ describe("register owner membership (multi-tenant)", () => {
 		});
 
 		mocks.query.mockImplementation(async (sql: string) => {
+			if (sql.includes("to_regclass")) {
+				return {
+					rows: [{ users: true, businesses: true, better_auth_user: true }],
+				};
+			}
 			if (sql.includes("FROM users") && sql.includes("email")) {
 				return { rows: [] };
 			}
@@ -137,6 +142,11 @@ describe("register owner membership (multi-tenant)", () => {
 		});
 
 		mocks.query.mockImplementation(async (sql: string) => {
+			if (sql.includes("to_regclass")) {
+				return {
+					rows: [{ users: true, businesses: true, better_auth_user: true }],
+				};
+			}
 			if (sql.includes("FROM users") && sql.includes("email")) {
 				return { rows: [] };
 			}
@@ -179,6 +189,11 @@ describe("register owner membership (multi-tenant)", () => {
 		});
 
 		mocks.query.mockImplementation(async (sql: string) => {
+			if (sql.includes("to_regclass")) {
+				return {
+					rows: [{ users: true, businesses: true, better_auth_user: true }],
+				};
+			}
 			if (sql.includes("FROM users") && sql.includes("email")) {
 				return { rows: [] };
 			}

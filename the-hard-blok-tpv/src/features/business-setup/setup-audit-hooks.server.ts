@@ -61,6 +61,46 @@ export async function auditInitialStockRecorded(receiptId: string) {
 	});
 }
 
+export async function auditInitialStockCreated(
+	metadata: Record<string, unknown>,
+) {
+	const ctx = await auditContext();
+	if (!ctx) return;
+	await logBusinessAuditEvent({
+		...ctx,
+		action: BUSINESS_AUDIT_ACTIONS.INITIAL_STOCK_CREATED,
+		entityType: "product_stock",
+		entityId: String(metadata.product_id ?? ""),
+		metadata,
+	});
+}
+
+export async function auditInitialPurchaseCreated(
+	receiptId: string,
+	metadata: Record<string, unknown>,
+) {
+	const ctx = await auditContext();
+	if (!ctx) return;
+	await logBusinessAuditEvent({
+		...ctx,
+		action: BUSINESS_AUDIT_ACTIONS.INITIAL_PURCHASE_CREATED,
+		entityType: "purchase_receipt",
+		entityId: receiptId,
+		metadata,
+	});
+}
+
+export async function auditInventoryReviewed() {
+	const ctx = await auditContext();
+	if (!ctx) return;
+	await logBusinessAuditEvent({
+		...ctx,
+		action: BUSINESS_AUDIT_ACTIONS.INVENTORY_REVIEWED,
+		entityType: "business",
+		entityId: ctx.businessId,
+	});
+}
+
 export async function auditCashSessionOpened(sessionId: string) {
 	const ctx = await auditContext();
 	if (!ctx) return;

@@ -6,6 +6,7 @@ export const SETUP_STEPS = [
 	"initial_stock",
 	"review_inventory",
 	"configure_cash",
+	"staff",
 	"open_cash",
 	"complete",
 ] as const;
@@ -13,10 +14,14 @@ export const SETUP_STEPS = [
 export type SetupStep = (typeof SETUP_STEPS)[number];
 
 export type BusinessSetupState = {
+	businessDetailsConfirmed: boolean;
 	hasWarehouse: boolean;
 	hasCategory: boolean;
 	hasProduct: boolean;
 	hasInitialStock: boolean;
+	inventoryReviewed: boolean;
+	cashConfigured: boolean;
+	staffStepHandled: boolean;
 	hasCashSession: boolean;
 	hasOpenCashSession: boolean;
 	canAccessSales: boolean;
@@ -45,10 +50,23 @@ export const BUSINESS_AUDIT_ACTIONS = {
 	CATEGORY_CREATED: "category.created",
 	PRODUCT_CREATED: "product.created",
 	INITIAL_STOCK_RECORDED: "stock.initial_recorded",
+	INITIAL_STOCK_CREATED: "inventory.initial_stock_created",
+	INITIAL_PURCHASE_CREATED: "purchase.initial_created",
+	INVENTORY_REVIEWED: "inventory.reviewed",
 	CASH_SESSION_OPENED: "cash_session.opened",
 	SALE_FINALIZED: "sale.finalized",
 	SETUP_COMPLETED: "setup.completed",
 } as const;
+
+export type SetupProductStockLine = {
+	product_id: string;
+	product_name: string;
+	warehouse_id: string;
+	warehouse_name: string;
+	quantity: number;
+};
+
+export type SetupInitialStockReason = "initial_purchase" | "initial_stock";
 
 export type BusinessAuditAction =
 	(typeof BUSINESS_AUDIT_ACTIONS)[keyof typeof BUSINESS_AUDIT_ACTIONS];

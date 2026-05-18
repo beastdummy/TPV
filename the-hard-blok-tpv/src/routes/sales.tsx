@@ -19,7 +19,6 @@ import {
 	buildFinalizeSaleLinesFromTicket,
 	getPosSaleErrorMessage,
 	POS_DEFAULT_TERMINAL_ID,
-	POS_DEFAULT_WAREHOUSE_ID,
 } from "../features/sales/build-pos-sale-payload";
 import {
 	getActiveCashSessionForPosFn,
@@ -34,7 +33,10 @@ import type {
 	SaleReceiptReadModel,
 	SaleReceiptSummary,
 } from "../features/sales/sale-read-model.types";
-import { getSalesCatalogForPosFn } from "../features/sales/sales.server-fns";
+import {
+	getSalesCatalogForPosFn,
+	setPosTerminalWarehouseFn,
+} from "../features/sales/sales.server-fns";
 import { openCashDrawerFn } from "../features/sales/server-fns";
 import type { CashSessionRow } from "../features/sales/transaction/schema-types";
 import { useTicket } from "../features/sales/use-ticket";
@@ -48,7 +50,11 @@ export const Route = createFileRoute("/sales")({
 });
 
 function SalesPage() {
-	const { categories, products } = Route.useLoaderData();
+	const { categories, products, operationalWarehouse, posWarehouse } =
+		Route.useLoaderData();
+	const [saleWarehouseId, setSaleWarehouseId] = useState(
+		operationalWarehouse.id,
+	);
 	const {
 		items,
 		addItem,
@@ -91,6 +97,13 @@ function SalesPage() {
 	const [isUnlockingPin, setIsUnlockingPin] = useState(false);
 	const [isOpeningCash, setIsOpeningCash] = useState(false);
 	const [pinRequiresEmail, setPinRequiresEmail] = useState(false);
+	const [negativeStockNotice, setNegativeStockNotice] = useState<string | null>(
+		null,
+	);
+
+	useEffect(() => {
+		setSaleWarehouseId(operationalWarehouse.id);
+	}, [operationalWarehouse.id]);
 
 	const refreshPosContext = useCallback(async () => {
 		try {
@@ -386,13 +399,14 @@ function SalesPage() {
 		try {
 			setIsFinalizingSale(true);
 			setActionMessage(null);
+			setNegativeStockNotice(null);
 
 			const finalizeResult = await finalizeSaleForPosFn({
 				data: {
 					client_request_id: crypto.randomUUID(),
 					cash_session_id: cashSession.id,
 					terminal_id: POS_DEFAULT_TERMINAL_ID,
-					warehouse_id: POS_DEFAULT_WAREHOUSE_ID,
+					warehouse_id: saleWarehouseId,
 					payment_method: "cash",
 					operator_token: operatorToken,
 					lines: buildFinalizeSaleLinesFromTicket(items),
@@ -404,6 +418,11 @@ function SalesPage() {
 			});
 
 			setCompletedReceipt(receipt);
+			if (finalizeResult.negative_stock_items?.length) {
+				setNegativeStockNotice(
+					"Venta completada. Algunos productos quedaron en stock negativo.",
+				);
+			}
 			clearTicket();
 			setSelectedItemId(null);
 			resetKeypad();
@@ -482,17 +501,58 @@ function SalesPage() {
 	return (
 		<AppShell title="Ventas">
 			<div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-				{posOperator ? (
-					<p className="text-sm text-muted-foreground">
-						Operando:{" "}
-						<span className="font-medium text-foreground">
-							{posOperator.operator_name}
-						</span>{" "}
-						<span className="text-xs">({posOperator.role})</span>
-					</p>
-				) : (
-					<p className="text-sm text-muted-foreground">TPV bloqueado</p>
-				)}
+				<div className="space-y-1">
+					{posOperator ? (
+						<p className="text-sm text-muted-foreground">
+							Operando:{" "}
+							<span className="font-medium text-foreground">
+								{posOperator.operator_name}
+							</span>{" "}
+							<span className="text-xs">({posOperator.role})</span>
+						</p>
+					) : (
+						<p className="text-sm text-muted-foreground">TPV bloqueado</p>
+					)}
+					<div className="text-xs text-muted-foreground">
+						<span>Almacén: </span>
+						{posWarehouse.canChangeWarehouse ? (
+							<select
+								value={saleWarehouseId}
+								onChange={async (event) => {
+									const nextId = event.target.value;
+									setSaleWarehouseId(nextId);
+									try {
+										await setPosTerminalWarehouseFn({
+											data: {
+												terminal_id: POS_DEFAULT_TERMINAL_ID,
+												warehouse_id: nextId,
+											},
+										});
+									} catch {
+										setActionMessage("No se pudo cambiar el almacén de venta.");
+									}
+								}}
+								className="ml-1 rounded-lg border bg-card px-2 py-1 text-xs text-foreground"
+							>
+								{posWarehouse.warehouses.map((warehouse) => (
+									<option key={warehouse.id} value={warehouse.id}>
+										{warehouse.name} ({warehouse.id})
+									</option>
+								))}
+							</select>
+						) : (
+							<>
+								<span className="font-medium text-foreground">
+									{operationalWarehouse.name}
+								</span>{" "}
+								<span className="font-mono">({operationalWarehouse.id})</span>
+							</>
+						)}
+					</div>
+					{negativeStockNotice ? (
+						<p className="text-xs text-amber-800">{negativeStockNotice}</p>
+					) : null}
+				</div>
 				{operatorToken ? (
 					<div className="flex flex-wrap gap-2">
 						<button

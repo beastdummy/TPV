@@ -2,96 +2,51 @@ import {
 	countActiveCategories,
 	countActiveProducts,
 	countActiveWarehouses,
-	countCashSessionsForBusiness,
 	getBusinessSetupCompletedAt,
 	hasInitialStockRecorded,
 	hasOpenCashSessionForBusiness,
+	isBusinessDetailsConfirmed,
+	isCashConfiguredForBusiness,
+	isInventoryReviewedForBusiness,
+	isStaffStepHandledForBusiness,
 } from "./setup-queries.server";
+import {
+	buildSetupCompletedSteps,
+	isSetupReadyForCompletion,
+	resolveSetupCurrentStep,
+} from "./setup-step-resolution";
 import type { BusinessSetupState, SetupStep } from "./types";
 import { SETUP_STEPS } from "./types";
 
-function resolveCurrentStep(flags: {
-	hasWarehouse: boolean;
-	hasCategory: boolean;
-	hasProduct: boolean;
-	hasInitialStock: boolean;
-	hasOpenCashSession: boolean;
-	setupCompleted: boolean;
-}): SetupStep {
-	if (flags.setupCompleted) {
-		return "complete";
-	}
-	if (!flags.hasWarehouse) {
-		return "confirm_business";
-	}
-	if (!flags.hasCategory) {
-		return "warehouse";
-	}
-	if (!flags.hasProduct) {
-		return "category";
-	}
-	if (!flags.hasInitialStock) {
-		return "product";
-	}
-	if (!flags.hasOpenCashSession) {
-		return "open_cash";
-	}
-	return "complete";
-}
-
-function buildCompletedSteps(flags: {
-	hasWarehouse: boolean;
-	hasCategory: boolean;
-	hasProduct: boolean;
-	hasInitialStock: boolean;
-	hasCashSession: boolean;
-	hasOpenCashSession: boolean;
-	setupCompleted: boolean;
-}): SetupStep[] {
-	const completed: SetupStep[] = [];
-
-	if (flags.hasWarehouse) {
-		completed.push("confirm_business", "warehouse");
-	}
-	if (flags.hasCategory) {
-		completed.push("category");
-	}
-	if (flags.hasProduct) {
-		completed.push("product");
-	}
-	if (flags.hasInitialStock) {
-		completed.push("initial_stock", "review_inventory");
-	}
-	if (flags.hasCashSession) {
-		completed.push("configure_cash");
-	}
-	if (flags.hasOpenCashSession) {
-		completed.push("open_cash");
-	}
-	if (flags.setupCompleted) {
-		completed.push("complete");
-	}
-
-	return completed;
-}
+export {
+	resolveSetupCurrentStep,
+	buildSetupCompletedSteps,
+	isSetupReadyForCompletion,
+};
 
 export async function getBusinessSetupState(
 	businessId: string,
 ): Promise<BusinessSetupState> {
 	const [
+		businessDetailsConfirmed,
 		warehouseCount,
 		categoryCount,
 		productCount,
 		hasInitialStock,
-		cashSessionCount,
+		inventoryReviewed,
+		cashConfigured,
+		staffStepHandled,
 		hasOpenCash,
 		setupCompletedAt,
 	] = await Promise.all([
+		isBusinessDetailsConfirmed(businessId),
 		countActiveWarehouses(),
 		countActiveCategories(),
 		countActiveProducts(),
 		hasInitialStockRecorded(),
-		countCashSessionsForBusiness(businessId),
+		isInventoryReviewedForBusiness(businessId),
+		isCashConfiguredForBusiness(businessId),
+		isStaffStepHandledForBusiness(businessId),
 		hasOpenCashSessionForBusiness(businessId),
 		getBusinessSetupCompletedAt(businessId),
 	]);
@@ -99,32 +54,37 @@ export async function getBusinessSetupState(
 	const hasWarehouse = warehouseCount > 0;
 	const hasCategory = categoryCount > 0;
 	const hasProduct = productCount > 0;
-	const hasCashSession = cashSessionCount > 0;
 	const hasOpenCashSession = hasOpenCash;
 	const setupCompleted = Boolean(setupCompletedAt);
-	const canAccessSales = hasOpenCashSession;
 
 	const flags = {
+		businessDetailsConfirmed,
 		hasWarehouse,
 		hasCategory,
 		hasProduct,
 		hasInitialStock,
-		hasCashSession,
+		inventoryReviewed,
+		cashConfigured,
+		staffStepHandled,
 		hasOpenCashSession,
 		setupCompleted,
 	};
 
 	return {
+		businessDetailsConfirmed,
 		hasWarehouse,
 		hasCategory,
 		hasProduct,
 		hasInitialStock,
-		hasCashSession,
+		inventoryReviewed,
+		cashConfigured,
+		staffStepHandled,
+		hasCashSession: hasOpenCashSession,
 		hasOpenCashSession,
-		canAccessSales,
+		canAccessSales: hasOpenCashSession,
 		setupCompleted,
-		currentStep: resolveCurrentStep(flags),
-		completedSteps: buildCompletedSteps(flags),
+		currentStep: resolveSetupCurrentStep(flags),
+		completedSteps: buildSetupCompletedSteps(flags),
 	};
 }
 

@@ -6,10 +6,13 @@ function baseState(
 	overrides: Partial<BusinessSetupState> = {},
 ): BusinessSetupState {
 	return {
+		businessDetailsConfirmed: false,
 		hasWarehouse: false,
 		hasCategory: false,
 		hasProduct: false,
 		hasInitialStock: false,
+		inventoryReviewed: false,
+		cashConfigured: false,
 		hasCashSession: false,
 		hasOpenCashSession: false,
 		canAccessSales: false,

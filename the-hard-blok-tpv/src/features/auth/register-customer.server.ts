@@ -8,6 +8,7 @@ import {
 	SLUG_PATTERN,
 	slugifyBusinessName,
 } from "../tenancy/slug";
+import { assertRegisterDatabaseReady } from "./ensure-app-db.server";
 import { hashPassword } from "./password.server";
 import { RegisterCustomerError } from "./register.errors";
 import type { RegisterCustomerOwnerInput } from "./register-customer.schema";
@@ -85,6 +86,8 @@ export type RegisterCustomerOwnerResult = {
 export async function registerCustomerOwner(
 	input: RegisterCustomerOwnerInput,
 ): Promise<RegisterCustomerOwnerResult> {
+	await assertRegisterDatabaseReady();
+
 	const email = normalizeEmail(input.email);
 	const businessName = input.businessName.trim();
 	const userName = input.userName.trim();

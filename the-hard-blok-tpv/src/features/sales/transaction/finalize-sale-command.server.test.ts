@@ -136,6 +136,15 @@ function createMockClient(options?: { initialStock?: Record<string, number> }) {
 				return { rows: [] };
 			}
 
+			if (normalized.includes("INSERT INTO product_stock")) {
+				const pid = params?.[0] as string;
+				const key = `${pid}:${params?.[1]}`;
+				if (!stock.has(key)) {
+					stock.set(key, 0);
+				}
+				return { rows: [] };
+			}
+
 			if (
 				normalized.includes("FROM product_stock") &&
 				normalized.includes("FOR UPDATE")
@@ -143,7 +152,7 @@ function createMockClient(options?: { initialStock?: Record<string, number> }) {
 				const pid = params?.[0] as string;
 				const key = `${pid}:${params?.[1]}`;
 				if (!stock.has(key)) {
-					return { rows: [] };
+					stock.set(key, 0);
 				}
 				return { rows: [{ quantity: stock.get(key) }] };
 			}
@@ -193,6 +202,13 @@ function createMockClient(options?: { initialStock?: Record<string, number> }) {
 
 			if (normalized.includes("UPDATE sale_idempotency_keys")) {
 				return { rows: [] };
+			}
+
+			if (
+				normalized.includes("FROM warehouses") &&
+				normalized.includes("SELECT name")
+			) {
+				return { rows: [{ name: "Almacén test" }] };
 			}
 
 			throw new Error(`Unhandled SQL in mock: ${normalized}`);
@@ -375,37 +391,35 @@ describe("finalize-sale-command.server", () => {
 		expect(client.getStockMovements()).toHaveLength(0);
 	});
 
-	it("rolls back entire sale when stock is insufficient", async () => {
+	it("completes sale with insufficient stock and negative balance", async () => {
 		const client = createMockClient({ initialStock: { [productId]: 1 } });
 		mocks.connect.mockResolvedValue(client);
 
-		await expect(
-			executeFinalizeSaleCommand({
-				...baseCommandInput,
-				lines: [{ ...baseCommandInput.lines[0], quantity: 2 }],
-			}),
-		).rejects.toMatchObject({
-			code: SALES_TX_ERROR_CODES.INSUFFICIENT_STOCK,
+		const result = await executeFinalizeSaleCommand({
+			...baseCommandInput,
+			lines: [{ ...baseCommandInput.lines[0], quantity: 2 }],
 		});
 
-		expect(client.getCalls()).toContain("ROLLBACK");
-		expect(client.getCalls()).not.toContain("COMMIT");
-		expect(client.getStock(productId)).toBe(1);
-		expect(client.getStockMovements()).toHaveLength(0);
+		expect(client.getCalls()).toContain("COMMIT");
+		expect(client.getStock(productId)).toBe(-1);
+		expect(client.getStockMovements()).toHaveLength(1);
+		expect(result.negative_stock_items).toEqual([
+			expect.objectContaining({
+				product_id: productId,
+				after_quantity: -1,
+			}),
+		]);
 	});
 
-	it("rolls back entire sale when stock row is missing", async () => {
+	it("completes sale when stock row is missing and leaves negative", async () => {
 		const client = createMockClient({ initialStock: {} });
 		mocks.connect.mockResolvedValue(client);
 
-		await expect(
-			executeFinalizeSaleCommand(baseCommandInput),
-		).rejects.toMatchObject({
-			code: SALES_TX_ERROR_CODES.STOCK_NOT_FOUND,
-		});
+		const result = await executeFinalizeSaleCommand(baseCommandInput);
 
-		expect(client.getCalls()).toContain("ROLLBACK");
-		expect(client.getStockMovements()).toHaveLength(0);
+		expect(client.getCalls()).toContain("COMMIT");
+		expect(client.getStock(productId)).toBe(-1);
+		expect(result.negative_stock_items).toHaveLength(1);
 	});
 
 	it("uses advisory lock before allocating receipt_number", async () => {

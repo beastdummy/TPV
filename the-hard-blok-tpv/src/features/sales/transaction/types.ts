@@ -97,6 +97,16 @@ export type FinalizeSalePaymentSnapshot = {
 	provider: SalePaymentProvider;
 };
 
+/** Producto que quedó en stock negativo tras la venta (aviso interno). */
+export type NegativeStockSaleItem = {
+	product_id: string;
+	product_name: string;
+	warehouse_id: string;
+	before_quantity: number;
+	sold_quantity: number;
+	after_quantity: number;
+};
+
 /** Respuesta prevista tras finalize exitoso. */
 export type FinalizeSaleResult = {
 	sale_id: string;
@@ -105,6 +115,7 @@ export type FinalizeSaleResult = {
 	total: number;
 	idempotency_key: string;
 	payment: FinalizeSalePaymentSnapshot;
+	negative_stock_items?: NegativeStockSaleItem[];
 };
 
 /** Contexto de tenant resuelto antes de cualquier comando de escritura. */

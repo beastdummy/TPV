@@ -12,11 +12,29 @@ export async function loadInventoryItemsForAdmin() {
 
 /** Datos de lectura para /admin/inventory (sin operaciones de escritura). */
 export async function loadInventoryPageForAdmin() {
-	const [warehouses, products, inventoryRows] = await Promise.all([
-		loadWarehousesForAdmin(),
-		loadProductsForAdmin(),
-		loadInventoryItemsForAdmin(),
-	]);
+	const { getProductStockOverview, getAllStockMovements } = await import(
+		"../inventory/queries.server"
+	);
 
-	return { warehouses, products, inventoryRows };
+	const [warehouses, products, inventoryRows, stockRows, stockMovements] =
+		await Promise.all([
+			loadWarehousesForAdmin(),
+			loadProductsForAdmin(),
+			loadInventoryItemsForAdmin(),
+			getProductStockOverview(),
+			getAllStockMovements(80),
+		]);
+
+	return { warehouses, products, inventoryRows, stockRows, stockMovements };
+}
+
+export async function loadReplenishmentPageForAdmin(warehouseId?: string) {
+	await ensureCatalogManagementBusinessRole();
+	const { getReplenishmentListForAdmin } = await import(
+		"../inventory/replenishment.server"
+	);
+	const warehouses = await loadWarehousesForAdmin();
+	const rows = await getReplenishmentListForAdmin(warehouseId);
+
+	return { warehouses, rows, warehouseId: warehouseId ?? null };
 }

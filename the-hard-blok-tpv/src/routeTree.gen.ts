@@ -22,6 +22,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminWarehousesRouteImport } from './routes/admin/warehouses'
 import { Route as AdminSettingsRouteImport } from './routes/admin/settings'
 import { Route as AdminRolesRouteImport } from './routes/admin/roles'
+import { Route as AdminReplenishmentRouteImport } from './routes/admin/replenishment'
 import { Route as AdminPurchasesRouteImport } from './routes/admin/purchases'
 import { Route as AdminProductsRouteImport } from './routes/admin/products'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
@@ -98,6 +99,11 @@ const AdminRolesRoute = AdminRolesRouteImport.update({
   path: '/admin/roles',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminReplenishmentRoute = AdminReplenishmentRouteImport.update({
+  id: '/admin/replenishment',
+  path: '/admin/replenishment',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminPurchasesRoute = AdminPurchasesRouteImport.update({
   id: '/admin/purchases',
   path: '/admin/purchases',
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
   '/admin/purchases': typeof AdminPurchasesRoute
+  '/admin/replenishment': typeof AdminReplenishmentRoute
   '/admin/roles': typeof AdminRolesRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/warehouses': typeof AdminWarehousesRoute
@@ -191,6 +198,7 @@ export interface FileRoutesByTo {
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
   '/admin/purchases': typeof AdminPurchasesRoute
+  '/admin/replenishment': typeof AdminReplenishmentRoute
   '/admin/roles': typeof AdminRolesRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/warehouses': typeof AdminWarehousesRoute
@@ -217,6 +225,7 @@ export interface FileRoutesById {
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
   '/admin/purchases': typeof AdminPurchasesRoute
+  '/admin/replenishment': typeof AdminReplenishmentRoute
   '/admin/roles': typeof AdminRolesRoute
   '/admin/settings': typeof AdminSettingsRoute
   '/admin/warehouses': typeof AdminWarehousesRoute
@@ -244,6 +253,7 @@ export interface FileRouteTypes {
     | '/admin/inventory'
     | '/admin/products'
     | '/admin/purchases'
+    | '/admin/replenishment'
     | '/admin/roles'
     | '/admin/settings'
     | '/admin/warehouses'
@@ -269,6 +279,7 @@ export interface FileRouteTypes {
     | '/admin/inventory'
     | '/admin/products'
     | '/admin/purchases'
+    | '/admin/replenishment'
     | '/admin/roles'
     | '/admin/settings'
     | '/admin/warehouses'
@@ -294,6 +305,7 @@ export interface FileRouteTypes {
     | '/admin/inventory'
     | '/admin/products'
     | '/admin/purchases'
+    | '/admin/replenishment'
     | '/admin/roles'
     | '/admin/settings'
     | '/admin/warehouses'
@@ -320,6 +332,7 @@ export interface RootRouteChildren {
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminProductsRoute: typeof AdminProductsRouteWithChildren
   AdminPurchasesRoute: typeof AdminPurchasesRoute
+  AdminReplenishmentRoute: typeof AdminReplenishmentRoute
   AdminRolesRoute: typeof AdminRolesRoute
   AdminSettingsRoute: typeof AdminSettingsRoute
   AdminWarehousesRoute: typeof AdminWarehousesRoute
@@ -419,6 +432,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/roles'
       fullPath: '/admin/roles'
       preLoaderRoute: typeof AdminRolesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/replenishment': {
+      id: '/admin/replenishment'
+      path: '/admin/replenishment'
+      fullPath: '/admin/replenishment'
+      preLoaderRoute: typeof AdminReplenishmentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/purchases': {
@@ -524,6 +544,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminInventoryRoute: AdminInventoryRoute,
   AdminProductsRoute: AdminProductsRouteWithChildren,
   AdminPurchasesRoute: AdminPurchasesRoute,
+  AdminReplenishmentRoute: AdminReplenishmentRoute,
   AdminRolesRoute: AdminRolesRoute,
   AdminSettingsRoute: AdminSettingsRoute,
   AdminWarehousesRoute: AdminWarehousesRoute,

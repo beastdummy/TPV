@@ -1,19 +1,28 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { STOCK_MOVEMENT_TYPES } from "../inventory/types";
+import {
+	LEGACY_STOCK_MOVEMENT_TYPES,
+	STOCK_ADJUSTMENT_REASON_CODES,
+} from "../inventory/stock-movement-types";
 import {
 	loadInventoryItemsForAdmin,
 	loadInventoryPageForAdmin,
+	loadReplenishmentPageForAdmin,
 } from "./inventory-access.server";
 import type {
+	AdjustStockForAdminRpcInput,
 	CreateInventoryMovementDetailedForAdminInput,
 	CreateStockMovementForAdminInput,
 	SetProductStockForAdminInput,
+	TransferStockForAdminInput,
 } from "./inventory-write-access.server";
 import {
+	adjustStockForAdmin,
 	createInventoryMovementDetailedForAdmin,
 	createStockMovementForAdmin,
 	setProductStockForAdmin,
+	transferStockBetweenWarehousesForAdmin,
+	updateProductStockMinimumsForAdmin,
 } from "./inventory-write-access.server";
 
 const setStockSchema = z.object({
@@ -25,7 +34,7 @@ const setStockSchema = z.object({
 const createMovementSchema = z.object({
 	product_id: z.string().trim().min(1),
 	warehouse_id: z.string().trim().min(1).max(80),
-	movement_type: z.enum(STOCK_MOVEMENT_TYPES),
+	movement_type: z.enum(LEGACY_STOCK_MOVEMENT_TYPES),
 	quantity: z.number().positive(),
 	reason: z.string().trim().max(300),
 });
@@ -33,7 +42,7 @@ const createMovementSchema = z.object({
 const createDetailedMovementSchema = z.object({
 	product_id: z.string().trim().min(1),
 	warehouse_id: z.string().trim().min(1).max(80),
-	movement_type: z.enum(STOCK_MOVEMENT_TYPES),
+	movement_type: z.enum(LEGACY_STOCK_MOVEMENT_TYPES),
 	quantity: z.number().positive(),
 	lot_code: z.string().trim().max(120),
 	serial_number: z.string().trim().max(120),
@@ -84,4 +93,58 @@ export const createInventoryMovementDetailedForAdminFn = createServerFn({
 		return await createInventoryMovementDetailedForAdmin(
 			data as CreateInventoryMovementDetailedForAdminInput,
 		);
+	});
+
+const transferStockSchema = z.object({
+	product_id: z.string().trim().min(1),
+	from_warehouse_id: z.string().trim().min(1).max(80),
+	to_warehouse_id: z.string().trim().min(1).max(80),
+	quantity: z.number().positive(),
+	reason_code: z.string().trim().min(1).max(120),
+	note: z.string().trim().max(500).optional(),
+});
+
+const adjustStockSchema = z.object({
+	product_id: z.string().trim().min(1),
+	warehouse_id: z.string().trim().min(1).max(80),
+	adjustment_type: z.enum(["increase", "decrease", "set"]),
+	quantity: z.number(),
+	reason_code: z.enum(STOCK_ADJUSTMENT_REASON_CODES),
+	note: z.string().trim().max(500).optional(),
+	confirm_negative: z.boolean().optional(),
+});
+
+const minimumStockSchema = z.object({
+	product_id: z.string().trim().min(1),
+	warehouse_id: z.string().trim().min(1).max(80),
+	minimum_quantity: z.number().min(0),
+	reorder_quantity: z.number().min(0),
+});
+
+export const getReplenishmentPageForAdminFn = createServerFn({
+	method: "GET",
+}).handler(async () => await loadReplenishmentPageForAdmin());
+
+export const transferStockBetweenWarehousesForAdminFn = createServerFn({
+	method: "POST",
+})
+	.inputValidator((data: unknown) => transferStockSchema.parse(data))
+	.handler(async ({ data }) => {
+		return await transferStockBetweenWarehousesForAdmin(
+			data as TransferStockForAdminInput,
+		);
+	});
+
+export const adjustStockForAdminFn = createServerFn({ method: "POST" })
+	.inputValidator((data: unknown) => adjustStockSchema.parse(data))
+	.handler(async ({ data }) => {
+		return await adjustStockForAdmin(data as AdjustStockForAdminRpcInput);
+	});
+
+export const updateProductStockMinimumsForAdminFn = createServerFn({
+	method: "POST",
+})
+	.inputValidator((data: unknown) => minimumStockSchema.parse(data))
+	.handler(async ({ data }) => {
+		return await updateProductStockMinimumsForAdmin(data);
 	});

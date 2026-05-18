@@ -128,6 +128,8 @@ CREATE TABLE IF NOT EXISTS product_stock (
   product_id UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
   warehouse_id TEXT NOT NULL REFERENCES warehouses(id) ON DELETE CASCADE,
   quantity NUMERIC(14, 3) NOT NULL DEFAULT 0,
+  minimum_quantity NUMERIC(14, 3) NOT NULL DEFAULT 0,
+  reorder_quantity NUMERIC(14, 3) NOT NULL DEFAULT 0,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (product_id, warehouse_id)
 );
@@ -147,17 +149,30 @@ CREATE TABLE IF NOT EXISTS stock_movements (
   previous_quantity NUMERIC(14, 3) NOT NULL,
   new_quantity NUMERIC(14, 3) NOT NULL,
   reason TEXT NOT NULL DEFAULT '',
+  reason_code TEXT,
+  note TEXT,
+  correlation_id UUID,
   performed_by_user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT stock_movements_type_check
-    CHECK (movement_type IN ('in', 'out', 'adjustment')),
+    CHECK (movement_type IN (
+      'in',
+      'out',
+      'sale',
+      'transfer_in',
+      'transfer_out',
+      'adjustment_in',
+      'adjustment_out',
+      'adjustment_set',
+      'purchase',
+      'adjustment'
+    )),
   CONSTRAINT stock_movements_qty_check
-    CHECK (quantity >= 0),
-  CONSTRAINT stock_movements_prev_qty_check
-    CHECK (previous_quantity >= 0),
-  CONSTRAINT stock_movements_new_qty_check
-    CHECK (new_quantity >= 0)
+    CHECK (quantity >= 0)
 );
+
+-- pos_terminal_settings: ver db/migrations/016_inventory_hospitality.sql
+-- (requiere businesses, creada en db:migrate:tenancy)
 
 CREATE INDEX IF NOT EXISTS stock_movements_warehouse_idx
 ON stock_movements (warehouse_id, created_at DESC);

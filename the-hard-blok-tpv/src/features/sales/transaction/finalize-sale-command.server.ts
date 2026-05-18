@@ -48,8 +48,9 @@ function mapFinalizeResult(
 	row: SaleHeaderRow,
 	idempotencyKey: string,
 	payment: FinalizeSalePaymentSnapshot,
+	negativeStockItems: FinalizeSaleResult["negative_stock_items"],
 ): FinalizeSaleResult {
-	return {
+	const result: FinalizeSaleResult = {
 		sale_id: row.id,
 		receipt_number: Number(row.receipt_number),
 		status: "completed",
@@ -57,6 +58,12 @@ function mapFinalizeResult(
 		idempotency_key: idempotencyKey,
 		payment,
 	};
+
+	if (negativeStockItems && negativeStockItems.length > 0) {
+		result.negative_stock_items = negativeStockItems;
+	}
+
+	return result;
 }
 
 function parseIdempotencyPayload(
@@ -82,7 +89,7 @@ function parseIdempotencyPayload(
 		return null;
 	}
 
-	return {
+	const result: FinalizeSaleResult = {
 		sale_id: data.sale_id,
 		receipt_number: data.receipt_number,
 		status: "completed",
@@ -90,6 +97,12 @@ function parseIdempotencyPayload(
 		idempotency_key: idempotencyKey,
 		payment: payment as FinalizeSalePaymentSnapshot,
 	};
+
+	if (Array.isArray(data.negative_stock_items)) {
+		result.negative_stock_items = data.negative_stock_items;
+	}
+
+	return result;
 }
 
 async function lockCashSession(
@@ -376,7 +389,7 @@ export async function executeFinalizeSaleCommand(
 
 		await insertSaleItems(client, sale.id, lines);
 
-		await decrementStockForSale(client, {
+		const negativeStockItems = await decrementStockForSale(client, {
 			warehouse_id: input.warehouse_id,
 			user_id: input.user_id,
 			sale_id: sale.id,
@@ -396,6 +409,7 @@ export async function executeFinalizeSaleCommand(
 			sale,
 			input.idempotency_key,
 			mapSalePaymentToSnapshot(paymentRow),
+			negativeStockItems,
 		);
 
 		await storeIdempotencyResult(
