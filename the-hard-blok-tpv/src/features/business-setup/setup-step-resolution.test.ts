@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
 	buildSetupCompletedSteps,
 	isSetupReadyForCompletion,
+	normalizeSetupProgressFlags,
 	resolveSetupCurrentStep,
 } from "./setup-step-resolution";
 
@@ -162,6 +163,66 @@ describe("resolveSetupCurrentStep", () => {
 				hasOpenCashSession: true,
 			}),
 		).toBe("review_inventory");
+	});
+
+	it("does not mark open_cash completed when inventory is not reviewed", () => {
+		const steps = buildSetupCompletedSteps({
+			...baseFlags,
+			businessDetailsConfirmed: true,
+			hasWarehouse: true,
+			hasCategory: true,
+			hasProduct: true,
+			hasInitialStock: true,
+			inventoryReviewed: false,
+			cashConfigured: true,
+			staffStepHandled: true,
+			hasOpenCashSession: true,
+		});
+
+		expect(steps).toEqual([
+			"confirm_business",
+			"warehouse",
+			"category",
+			"product",
+			"initial_stock",
+		]);
+		expect(steps).not.toContain("open_cash");
+	});
+
+	it("normalizeSetupProgressFlags clears later flags until inventory is reviewed", () => {
+		const normalized = normalizeSetupProgressFlags({
+			...baseFlags,
+			businessDetailsConfirmed: true,
+			hasWarehouse: true,
+			hasCategory: true,
+			hasProduct: true,
+			hasInitialStock: true,
+			inventoryReviewed: false,
+			cashConfigured: true,
+			staffStepHandled: true,
+			hasOpenCashSession: true,
+			setupCompleted: true,
+		});
+
+		expect(normalized.inventoryReviewed).toBe(false);
+		expect(normalized.cashConfigured).toBe(false);
+		expect(normalized.hasOpenCashSession).toBe(false);
+		expect(normalized.setupCompleted).toBe(false);
+	});
+
+	it("after inventory reviewed, required step is configure_cash when cash is not configured", () => {
+		expect(
+			resolveSetupCurrentStep({
+				...baseFlags,
+				businessDetailsConfirmed: true,
+				hasWarehouse: true,
+				hasCategory: true,
+				hasProduct: true,
+				hasInitialStock: true,
+				inventoryReviewed: true,
+				cashConfigured: false,
+			}),
+		).toBe("configure_cash");
 	});
 
 	it("resolveSetupCurrentStep always returns a valid step id", () => {

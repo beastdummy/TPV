@@ -157,6 +157,10 @@ function SetupPage() {
 	}
 
 	function handleContinue() {
+		if (activeStep === "review_inventory") {
+			void handleReviewInventoryContinue();
+			return;
+		}
 		const blocked = getSetupContinueBlockedMessage(activeStep, setupSnapshot);
 		if (blocked) {
 			setError(blocked);
@@ -205,9 +209,11 @@ function SetupPage() {
 		setIsBusy(true);
 		try {
 			await action();
-			await refreshWizard({
-				preserveActiveStep: options?.preserveActiveStep ?? true,
-			});
+			const preserveActive =
+				options?.advanceTo !== undefined
+					? true
+					: (options?.preserveActiveStep ?? true);
+			await refreshWizard({ preserveActiveStep: preserveActive });
 			if (options?.advanceTo) {
 				setActiveStep(options.advanceTo);
 			}
@@ -216,6 +222,23 @@ function SetupPage() {
 		} finally {
 			setIsBusy(false);
 		}
+	}
+
+	async function handleReviewInventoryContinue() {
+		if (productStockLines.length === 0) {
+			setError("Registra stock antes de revisar el inventario.");
+			return;
+		}
+		await runStep(
+			async () => {
+				const result = await markInventoryReviewedStepFn();
+				applyWizardResult({
+					setup: result.setup,
+					productStockLines: result.productStockLines,
+				});
+			},
+			{ advanceTo: "configure_cash" },
+		);
 	}
 
 	const [businessForm, setBusinessForm] = useState({
@@ -851,22 +874,7 @@ function SetupPage() {
 												type="button"
 												disabled={isBusy}
 												className={btnPrimary}
-												onClick={() =>
-													runStep(
-														async () => {
-															const result =
-																await markInventoryReviewedStepFn();
-															applyWizardResult({
-																setup: result.setup,
-																productStockLines: result.productStockLines,
-															});
-														},
-														{
-															preserveActiveStep: false,
-															advanceTo: "configure_cash",
-														},
-													)
-												}
+												onClick={() => void handleReviewInventoryContinue()}
 											>
 												Continuar
 											</button>

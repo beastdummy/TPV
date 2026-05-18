@@ -57,18 +57,46 @@ export function isSetupReadyForCompletion(flags: SetupProgressFlags): boolean {
 /**
  * Primer paso obligatorio pendiente según flags reales (nunca asume complete por datos inconsistentes).
  */
+/**
+ * Later setup flags are ignored until all prior steps are complete (recovers inconsistent DB state).
+ */
+export function normalizeSetupProgressFlags(
+	flags: SetupProgressFlags,
+): SetupProgressFlags {
+	const normalized = { ...flags };
+	let priorStepsComplete = true;
+
+	for (const { flag } of SETUP_STEP_ORDER) {
+		if (!priorStepsComplete) {
+			normalized[flag] = false;
+			continue;
+		}
+		if (!normalized[flag]) {
+			priorStepsComplete = false;
+		}
+	}
+
+	if (!isSetupReadyForCompletion(normalized)) {
+		normalized.setupCompleted = false;
+	}
+
+	return normalized;
+}
+
 export function resolveSetupCurrentStep(flags: SetupProgressFlags): SetupStep {
-	if (flags.setupCompleted && isSetupReadyForCompletion(flags)) {
+	const progress = normalizeSetupProgressFlags(flags);
+
+	if (progress.setupCompleted && isSetupReadyForCompletion(progress)) {
 		return "complete";
 	}
 
 	for (const { flag, step } of SETUP_STEP_ORDER) {
-		if (!flags[flag]) {
+		if (!progress[flag]) {
 			return step;
 		}
 	}
 
-	if (isSetupReadyForCompletion(flags)) {
+	if (isSetupReadyForCompletion(progress)) {
 		return "complete";
 	}
 
@@ -86,15 +114,17 @@ export function canEnterSalesAfterSetup(flags: SetupProgressFlags): boolean {
 export function buildSetupCompletedSteps(
 	flags: SetupProgressFlags,
 ): SetupStep[] {
+	const progress = normalizeSetupProgressFlags(flags);
 	const completed: SetupStep[] = [];
 
 	for (const { flag, step } of SETUP_STEP_ORDER) {
-		if (flags[flag]) {
-			completed.push(step);
+		if (!progress[flag]) {
+			break;
 		}
+		completed.push(step);
 	}
 
-	if (flags.setupCompleted && isSetupReadyForCompletion(flags)) {
+	if (progress.setupCompleted && isSetupReadyForCompletion(progress)) {
 		completed.push("complete");
 	}
 
@@ -104,21 +134,22 @@ export function buildSetupCompletedSteps(
 export function toBusinessSetupState(
 	flags: SetupProgressFlags,
 ): BusinessSetupState {
+	const progress = normalizeSetupProgressFlags(flags);
 	const currentStep = resolveSetupCurrentStep(flags);
 
 	return {
-		businessDetailsConfirmed: flags.businessDetailsConfirmed,
-		hasWarehouse: flags.hasWarehouse,
-		hasCategory: flags.hasCategory,
-		hasProduct: flags.hasProduct,
-		hasInitialStock: flags.hasInitialStock,
-		inventoryReviewed: flags.inventoryReviewed,
-		cashConfigured: flags.cashConfigured,
-		staffStepHandled: flags.staffStepHandled,
-		hasCashSession: flags.hasOpenCashSession,
-		hasOpenCashSession: flags.hasOpenCashSession,
-		canAccessSales: canEnterSalesAfterSetup(flags),
-		setupCompleted: flags.setupCompleted,
+		businessDetailsConfirmed: progress.businessDetailsConfirmed,
+		hasWarehouse: progress.hasWarehouse,
+		hasCategory: progress.hasCategory,
+		hasProduct: progress.hasProduct,
+		hasInitialStock: progress.hasInitialStock,
+		inventoryReviewed: progress.inventoryReviewed,
+		cashConfigured: progress.cashConfigured,
+		staffStepHandled: progress.staffStepHandled,
+		hasCashSession: progress.hasOpenCashSession,
+		hasOpenCashSession: progress.hasOpenCashSession,
+		canAccessSales: canEnterSalesAfterSetup(progress),
+		setupCompleted: progress.setupCompleted,
 		currentStep,
 		completedSteps: buildSetupCompletedSteps(flags),
 	};

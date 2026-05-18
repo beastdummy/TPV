@@ -57,4 +57,28 @@ describe("setup wizard state", () => {
 		expect(isSetupOperationallyReady(setup)).toBe(true);
 		expect(setup.currentStep).toBe("complete");
 	});
+
+	it("allows active step one ahead of required (e.g. configure_cash after review)", () => {
+		const setup = toBusinessSetupState({
+			...readyFlags,
+			inventoryReviewed: false,
+			cashConfigured: false,
+			staffStepHandled: false,
+			hasOpenCashSession: false,
+		});
+
+		expect(
+			clampActiveSetupStep("configure_cash", setup.currentStep, setup),
+		).toBe("configure_cash");
+	});
+
+	it("does not list open_cash in completed steps when inventory is pending", () => {
+		const setup = toBusinessSetupState({
+			...readyFlags,
+			inventoryReviewed: false,
+			hasOpenCashSession: true,
+		});
+
+		expect(setup.completedSteps).not.toContain("open_cash");
+	});
 });

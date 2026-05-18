@@ -1,3 +1,4 @@
+import { getNextSetupStep } from "./setup-navigation";
 import {
 	canEnterSalesAfterSetup,
 	canShowSetupCompleteStep,
@@ -73,6 +74,11 @@ export function clampActiveSetupStep(
 
 	const activeIndex = SETUP_STEPS.indexOf(safeActive);
 	const requiredIndex = SETUP_STEPS.indexOf(safeRequired);
+	const nextRequired = getNextSetupStep(safeRequired);
+
+	if (nextRequired && safeActive === nextRequired) {
+		return safeActive;
+	}
 
 	if (activeIndex > requiredIndex && safeRequired !== "complete") {
 		return safeRequired;

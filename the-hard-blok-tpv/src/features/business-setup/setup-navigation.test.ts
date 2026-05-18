@@ -101,7 +101,13 @@ describe("setup navigation helpers", () => {
 			getSetupContinueBlockedMessage("initial_stock", withProduct),
 		).toMatch(/entrada/i);
 		expect(canContinueFromSetupStep("initial_stock", withStock)).toBe(true);
-		expect(canContinueFromSetupStep("review_inventory", withStock)).toBe(true);
+		expect(canContinueFromSetupStep("review_inventory", withStock)).toBe(false);
+		expect(
+			canContinueFromSetupStep("review_inventory", {
+				...withStock,
+				inventoryReviewed: true,
+			}),
+		).toBe(true);
 	});
 
 	it("staff step can always continue without extra employees", () => {

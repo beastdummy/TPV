@@ -14,6 +14,7 @@ import {
 	buildSetupCompletedSteps,
 	canEnterSalesAfterSetup,
 	isSetupReadyForCompletion,
+	normalizeSetupProgressFlags,
 	resolveSetupCurrentStep,
 } from "./setup-step-resolution";
 import type { BusinessSetupState, SetupStep } from "./types";
@@ -71,19 +72,21 @@ export async function getBusinessSetupState(
 		setupCompleted,
 	};
 
+	const progress = normalizeSetupProgressFlags(flags);
+
 	return {
-		businessDetailsConfirmed,
-		hasWarehouse,
-		hasCategory,
-		hasProduct,
-		hasInitialStock,
-		inventoryReviewed,
-		cashConfigured,
-		staffStepHandled,
-		hasCashSession: hasOpenCashSession,
-		hasOpenCashSession,
-		canAccessSales: canEnterSalesAfterSetup(flags),
-		setupCompleted,
+		businessDetailsConfirmed: progress.businessDetailsConfirmed,
+		hasWarehouse: progress.hasWarehouse,
+		hasCategory: progress.hasCategory,
+		hasProduct: progress.hasProduct,
+		hasInitialStock: progress.hasInitialStock,
+		inventoryReviewed: progress.inventoryReviewed,
+		cashConfigured: progress.cashConfigured,
+		staffStepHandled: progress.staffStepHandled,
+		hasCashSession: progress.hasOpenCashSession,
+		hasOpenCashSession: progress.hasOpenCashSession,
+		canAccessSales: canEnterSalesAfterSetup(progress),
+		setupCompleted: progress.setupCompleted,
 		currentStep: resolveSetupCurrentStep(flags),
 		completedSteps: buildSetupCompletedSteps(flags),
 	};

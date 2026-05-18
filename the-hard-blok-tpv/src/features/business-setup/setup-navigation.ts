@@ -54,7 +54,7 @@ export function canContinueFromSetupStep(
 		case "initial_stock":
 			return snapshot.hasInitialStock;
 		case "review_inventory":
-			return snapshot.hasInitialStock;
+			return snapshot.inventoryReviewed;
 		case "configure_cash":
 			return snapshot.cashConfigured;
 		case "staff":
@@ -88,7 +88,7 @@ export function getSetupContinueBlockedMessage(
 		case "initial_stock":
 			return "Registra al menos una compra o entrada inicial con stock.";
 		case "review_inventory":
-			return "Debe existir stock antes de revisar el inventario.";
+			return "Confirma la revisión del inventario para continuar.";
 		case "configure_cash":
 			return "Configura el fondo de caja para continuar.";
 		case "open_cash":
