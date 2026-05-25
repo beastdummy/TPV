@@ -14,6 +14,7 @@ import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as DemoRouteImport } from './routes/demo'
+import { Route as DashboardRouteRouteImport } from './routes/dashboard/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
@@ -51,15 +52,20 @@ const DemoRoute = DemoRouteImport.update({
   path: '/demo',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DashboardRouteRoute = DashboardRouteRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardIndexRoute = DashboardIndexRouteImport.update({
-  id: '/dashboard/',
-  path: '/dashboard/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/admin/',
@@ -67,24 +73,24 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardSupportRoute = DashboardSupportRouteImport.update({
-  id: '/dashboard/support',
-  path: '/dashboard/support',
-  getParentRoute: () => rootRouteImport,
+  id: '/support',
+  path: '/support',
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardLicensesRoute = DashboardLicensesRouteImport.update({
-  id: '/dashboard/licenses',
-  path: '/dashboard/licenses',
-  getParentRoute: () => rootRouteImport,
+  id: '/licenses',
+  path: '/licenses',
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardDownloadsRoute = DashboardDownloadsRouteImport.update({
-  id: '/dashboard/downloads',
-  path: '/dashboard/downloads',
-  getParentRoute: () => rootRouteImport,
+  id: '/downloads',
+  path: '/downloads',
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const DashboardBusinessRoute = DashboardBusinessRouteImport.update({
-  id: '/dashboard/business',
-  path: '/dashboard/business',
-  getParentRoute: () => rootRouteImport,
+  id: '/business',
+  path: '/business',
+  getParentRoute: () => DashboardRouteRoute,
 } as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/admin/users',
@@ -109,6 +115,7 @@ const AdminLicensesRoute = AdminLicensesRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRouteRouteWithChildren
   '/demo': typeof DemoRoute
   '/docs': typeof DocsRoute
   '/login': typeof LoginRoute
@@ -146,6 +153,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/dashboard': typeof DashboardRouteRouteWithChildren
   '/demo': typeof DemoRoute
   '/docs': typeof DocsRoute
   '/login': typeof LoginRoute
@@ -166,6 +174,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/dashboard'
     | '/demo'
     | '/docs'
     | '/login'
@@ -202,6 +211,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/dashboard'
     | '/demo'
     | '/docs'
     | '/login'
@@ -221,6 +231,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DashboardRouteRoute: typeof DashboardRouteRouteWithChildren
   DemoRoute: typeof DemoRoute
   DocsRoute: typeof DocsRoute
   LoginRoute: typeof LoginRoute
@@ -230,12 +241,7 @@ export interface RootRouteChildren {
   AdminLogsRoute: typeof AdminLogsRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
   AdminUsersRoute: typeof AdminUsersRoute
-  DashboardBusinessRoute: typeof DashboardBusinessRoute
-  DashboardDownloadsRoute: typeof DashboardDownloadsRoute
-  DashboardLicensesRoute: typeof DashboardLicensesRoute
-  DashboardSupportRoute: typeof DashboardSupportRoute
   AdminIndexRoute: typeof AdminIndexRoute
-  DashboardIndexRoute: typeof DashboardIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -275,6 +281,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DemoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -284,10 +297,10 @@ declare module '@tanstack/react-router' {
     }
     '/dashboard/': {
       id: '/dashboard/'
-      path: '/dashboard'
+      path: '/'
       fullPath: '/dashboard/'
       preLoaderRoute: typeof DashboardIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/admin/': {
       id: '/admin/'
@@ -298,31 +311,31 @@ declare module '@tanstack/react-router' {
     }
     '/dashboard/support': {
       id: '/dashboard/support'
-      path: '/dashboard/support'
+      path: '/support'
       fullPath: '/dashboard/support'
       preLoaderRoute: typeof DashboardSupportRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/licenses': {
       id: '/dashboard/licenses'
-      path: '/dashboard/licenses'
+      path: '/licenses'
       fullPath: '/dashboard/licenses'
       preLoaderRoute: typeof DashboardLicensesRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/downloads': {
       id: '/dashboard/downloads'
-      path: '/dashboard/downloads'
+      path: '/downloads'
       fullPath: '/dashboard/downloads'
       preLoaderRoute: typeof DashboardDownloadsRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/dashboard/business': {
       id: '/dashboard/business'
-      path: '/dashboard/business'
+      path: '/business'
       fullPath: '/dashboard/business'
       preLoaderRoute: typeof DashboardBusinessRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof DashboardRouteRoute
     }
     '/admin/users': {
       id: '/admin/users'
@@ -355,8 +368,29 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface DashboardRouteRouteChildren {
+  DashboardBusinessRoute: typeof DashboardBusinessRoute
+  DashboardDownloadsRoute: typeof DashboardDownloadsRoute
+  DashboardLicensesRoute: typeof DashboardLicensesRoute
+  DashboardSupportRoute: typeof DashboardSupportRoute
+  DashboardIndexRoute: typeof DashboardIndexRoute
+}
+
+const DashboardRouteRouteChildren: DashboardRouteRouteChildren = {
+  DashboardBusinessRoute: DashboardBusinessRoute,
+  DashboardDownloadsRoute: DashboardDownloadsRoute,
+  DashboardLicensesRoute: DashboardLicensesRoute,
+  DashboardSupportRoute: DashboardSupportRoute,
+  DashboardIndexRoute: DashboardIndexRoute,
+}
+
+const DashboardRouteRouteWithChildren = DashboardRouteRoute._addFileChildren(
+  DashboardRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DashboardRouteRoute: DashboardRouteRouteWithChildren,
   DemoRoute: DemoRoute,
   DocsRoute: DocsRoute,
   LoginRoute: LoginRoute,
@@ -366,12 +400,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminLogsRoute: AdminLogsRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,
   AdminUsersRoute: AdminUsersRoute,
-  DashboardBusinessRoute: DashboardBusinessRoute,
-  DashboardDownloadsRoute: DashboardDownloadsRoute,
-  DashboardLicensesRoute: DashboardLicensesRoute,
-  DashboardSupportRoute: DashboardSupportRoute,
   AdminIndexRoute: AdminIndexRoute,
-  DashboardIndexRoute: DashboardIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

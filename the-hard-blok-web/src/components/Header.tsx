@@ -1,10 +1,6 @@
 import { Link } from '@tanstack/react-router'
 
-import { getTpvRegisterPath, tpvAppUrl } from '../lib/tpv-app-url'
 import ThemeToggle from './ThemeToggle'
-
-const tpvLoginHref = tpvAppUrl('/login')
-const tpvRegisterHref = tpvAppUrl(getTpvRegisterPath())
 
 export default function Header() {
   return (
@@ -55,15 +51,20 @@ export default function Header() {
             Docs
           </Link>
           <span className="hidden h-4 w-px bg-[var(--line)] sm:inline" aria-hidden />
-          <a href={tpvLoginHref} className="nav-link">
+          <Link
+            to="/login"
+            search={{ redirect: '/dashboard' }}
+            className="nav-link"
+          >
             Entrar
-          </a>
-          <a
-            href={tpvRegisterHref}
+          </Link>
+          <Link
+            to="/register"
+            search={{ redirect: '/dashboard' }}
             className="rounded-full border border-[rgba(50,143,151,0.35)] bg-[rgba(79,184,178,0.16)] px-3 py-1.5 text-[var(--lagoon-deep)] no-underline transition hover:bg-[rgba(79,184,178,0.28)]"
           >
             Registro
-          </a>
+          </Link>
         </div>
       </nav>
     </header>

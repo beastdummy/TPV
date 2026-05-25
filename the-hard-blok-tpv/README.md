@@ -10,7 +10,7 @@ npm install
 npm run dev
 ```
 
-Por defecto corre en el **puerto 3001**. Copia `the-hard-blok-web/.env.example` a `the-hard-blok-web/.env` y define `VITE_TPV_APP_URL=http://localhost:3000` para que «Entrar» abra el login de este TPV.
+La web corre en el **puerto 3001** y este TPV en el **3000**. Copia `the-hard-blok-web/.env.example` a `.env` con `VITE_TPV_APP_URL=http://localhost:3000`. En el TPV, añade `WEB_APP_URL=http://localhost:3001` en `.env` para que tras Google el usuario vuelva a la web.
 
 # Getting Started (TPV)
 

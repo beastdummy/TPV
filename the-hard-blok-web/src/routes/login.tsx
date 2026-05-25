@@ -2,7 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useLayoutEffect, useState } from 'react'
 
 import { InternalShell } from '../components/InternalShell'
-import { getTpvAppBaseUrl, tpvAppUrl } from '../lib/tpv-app-url'
+import { getTpvAppBaseUrl, getWebReturnTo, tpvAppUrl } from '../lib/tpv-app-url'
 
 type LoginSearch = {
   redirect?: string
@@ -18,10 +18,8 @@ export const Route = createFileRoute('/login')({
 function LoginPage() {
   const { redirect } = Route.useSearch()
   const [failed, setFailed] = useState(false)
-  const target = tpvAppUrl(
-    '/login',
-    redirect ? { redirect } : undefined,
-  )
+  const returnTo = getWebReturnTo(redirect)
+  const target = tpvAppUrl('/login', returnTo ? { returnTo } : undefined)
 
   useLayoutEffect(() => {
     try {

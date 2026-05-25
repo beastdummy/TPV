@@ -8,7 +8,7 @@ import {
 	type AuthEntrySearch,
 } from "../lib/auth-redirect";
 
-export const Route = createFileRoute("/login")({
+export const Route = createFileRoute("/register")({
 	validateSearch: (search: Record<string, unknown>): AuthEntrySearch => ({
 		redirect: typeof search.redirect === "string" ? search.redirect : undefined,
 		returnTo: typeof search.returnTo === "string" ? search.returnTo : undefined,
@@ -27,12 +27,12 @@ export const Route = createFileRoute("/login")({
 	loader: async () => {
 		return await getOAuthSetupFn();
 	},
-	component: LoginRoute,
+	component: RegisterRoute,
 });
 
-function LoginRoute() {
+function RegisterRoute() {
 	const search = Route.useSearch();
 	const oauth = Route.useLoaderData();
 
-	return <LoginPage mode="login" search={search} oauth={oauth} />;
+	return <LoginPage mode="register" search={search} oauth={oauth} />;
 }

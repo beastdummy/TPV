@@ -7,6 +7,12 @@ import { defineConfig } from "vite";
 
 const config = defineConfig({
 	resolve: { tsconfigPaths: true },
+	server: {
+		// WSL + Windows: evita que el navegador use [::1] cuando Vite solo escuchaba en 127.0.0.1
+		host: true,
+		port: 3000,
+		strictPort: true,
+	},
 	plugins: [
 		devtools(),
 		nitro({ rollupConfig: { external: [/^@sentry\//] } }),

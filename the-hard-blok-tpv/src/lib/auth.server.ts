@@ -2,6 +2,8 @@ import { betterAuth } from "better-auth";
 import { tanstackStartCookies } from "better-auth/tanstack-start";
 import { Pool } from "pg";
 
+import { getWebAppOrigins } from "./web-app-url";
+
 let authSingleton: ReturnType<typeof betterAuth> | undefined;
 
 /**
@@ -45,6 +47,7 @@ export function getAuth(): ReturnType<typeof betterAuth> {
 	authSingleton = betterAuth({
 		baseURL: betterAuthUrl,
 		secret: betterAuthSecret,
+		trustedOrigins: getWebAppOrigins(),
 		database: new Pool({
 			connectionString: databaseUrl,
 		}),
@@ -60,7 +63,7 @@ export function getAuth(): ReturnType<typeof betterAuth> {
 				}
 			: {},
 		plugins: [tanstackStartCookies()],
-	});
+	}) as unknown as ReturnType<typeof betterAuth>;
 
 	return authSingleton;
 }

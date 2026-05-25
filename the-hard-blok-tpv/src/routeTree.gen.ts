@@ -10,16 +10,19 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SalesRouteImport } from './routes/sales'
+import { Route as RegisterRouteImport } from './routes/register'
 import { Route as PinRouteImport } from './routes/pin'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AuthPostLoginRouteImport } from './routes/auth/post-login'
 import { Route as AdminWarehousesRouteImport } from './routes/admin/warehouses'
 import { Route as AdminPurchasesRouteImport } from './routes/admin/purchases'
 import { Route as AdminProductsRouteImport } from './routes/admin/products'
 import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
 import { Route as AdminCategoriesRouteImport } from './routes/admin/categories'
+import { Route as ApiMeSessionRouteImport } from './routes/api/me/session'
 import { Route as ApiMeDashboardRouteImport } from './routes/api/me/dashboard'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AdminProductsCreateRouteImport } from './routes/admin/products.create'
@@ -28,6 +31,11 @@ import { Route as AdminProductsProductIdEditRouteImport } from './routes/admin/p
 const SalesRoute = SalesRouteImport.update({
   id: '/sales',
   path: '/sales',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PinRoute = PinRouteImport.update({
@@ -55,6 +63,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthPostLoginRoute = AuthPostLoginRouteImport.update({
+  id: '/auth/post-login',
+  path: '/auth/post-login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminWarehousesRoute = AdminWarehousesRouteImport.update({
   id: '/admin/warehouses',
   path: '/admin/warehouses',
@@ -78,6 +91,11 @@ const AdminInventoryRoute = AdminInventoryRouteImport.update({
 const AdminCategoriesRoute = AdminCategoriesRouteImport.update({
   id: '/admin/categories',
   path: '/admin/categories',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMeSessionRoute = ApiMeSessionRouteImport.update({
+  id: '/api/me/session',
+  path: '/api/me/session',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiMeDashboardRoute = ApiMeDashboardRouteImport.update({
@@ -107,16 +125,19 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/pin': typeof PinRoute
+  '/register': typeof RegisterRoute
   '/sales': typeof SalesRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
   '/admin/purchases': typeof AdminPurchasesRoute
   '/admin/warehouses': typeof AdminWarehousesRoute
+  '/auth/post-login': typeof AuthPostLoginRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/products/create': typeof AdminProductsCreateRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/me/dashboard': typeof ApiMeDashboardRoute
+  '/api/me/session': typeof ApiMeSessionRoute
   '/admin/products/$productId/edit': typeof AdminProductsProductIdEditRoute
 }
 export interface FileRoutesByTo {
@@ -124,16 +145,19 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/pin': typeof PinRoute
+  '/register': typeof RegisterRoute
   '/sales': typeof SalesRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
   '/admin/purchases': typeof AdminPurchasesRoute
   '/admin/warehouses': typeof AdminWarehousesRoute
+  '/auth/post-login': typeof AuthPostLoginRoute
   '/admin': typeof AdminIndexRoute
   '/admin/products/create': typeof AdminProductsCreateRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/me/dashboard': typeof ApiMeDashboardRoute
+  '/api/me/session': typeof ApiMeSessionRoute
   '/admin/products/$productId/edit': typeof AdminProductsProductIdEditRoute
 }
 export interface FileRoutesById {
@@ -142,16 +166,19 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/pin': typeof PinRoute
+  '/register': typeof RegisterRoute
   '/sales': typeof SalesRoute
   '/admin/categories': typeof AdminCategoriesRoute
   '/admin/inventory': typeof AdminInventoryRoute
   '/admin/products': typeof AdminProductsRouteWithChildren
   '/admin/purchases': typeof AdminPurchasesRoute
   '/admin/warehouses': typeof AdminWarehousesRoute
+  '/auth/post-login': typeof AuthPostLoginRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/products/create': typeof AdminProductsCreateRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/me/dashboard': typeof ApiMeDashboardRoute
+  '/api/me/session': typeof ApiMeSessionRoute
   '/admin/products/$productId/edit': typeof AdminProductsProductIdEditRoute
 }
 export interface FileRouteTypes {
@@ -161,16 +188,19 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/pin'
+    | '/register'
     | '/sales'
     | '/admin/categories'
     | '/admin/inventory'
     | '/admin/products'
     | '/admin/purchases'
     | '/admin/warehouses'
+    | '/auth/post-login'
     | '/admin/'
     | '/admin/products/create'
     | '/api/auth/$'
     | '/api/me/dashboard'
+    | '/api/me/session'
     | '/admin/products/$productId/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -178,16 +208,19 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/pin'
+    | '/register'
     | '/sales'
     | '/admin/categories'
     | '/admin/inventory'
     | '/admin/products'
     | '/admin/purchases'
     | '/admin/warehouses'
+    | '/auth/post-login'
     | '/admin'
     | '/admin/products/create'
     | '/api/auth/$'
     | '/api/me/dashboard'
+    | '/api/me/session'
     | '/admin/products/$productId/edit'
   id:
     | '__root__'
@@ -195,16 +228,19 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/login'
     | '/pin'
+    | '/register'
     | '/sales'
     | '/admin/categories'
     | '/admin/inventory'
     | '/admin/products'
     | '/admin/purchases'
     | '/admin/warehouses'
+    | '/auth/post-login'
     | '/admin/'
     | '/admin/products/create'
     | '/api/auth/$'
     | '/api/me/dashboard'
+    | '/api/me/session'
     | '/admin/products/$productId/edit'
   fileRoutesById: FileRoutesById
 }
@@ -213,15 +249,18 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   PinRoute: typeof PinRoute
+  RegisterRoute: typeof RegisterRoute
   SalesRoute: typeof SalesRoute
   AdminCategoriesRoute: typeof AdminCategoriesRoute
   AdminInventoryRoute: typeof AdminInventoryRoute
   AdminProductsRoute: typeof AdminProductsRouteWithChildren
   AdminPurchasesRoute: typeof AdminPurchasesRoute
   AdminWarehousesRoute: typeof AdminWarehousesRoute
+  AuthPostLoginRoute: typeof AuthPostLoginRoute
   AdminIndexRoute: typeof AdminIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiMeDashboardRoute: typeof ApiMeDashboardRoute
+  ApiMeSessionRoute: typeof ApiMeSessionRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -231,6 +270,13 @@ declare module '@tanstack/react-router' {
       path: '/sales'
       fullPath: '/sales'
       preLoaderRoute: typeof SalesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pin': {
@@ -268,6 +314,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/post-login': {
+      id: '/auth/post-login'
+      path: '/auth/post-login'
+      fullPath: '/auth/post-login'
+      preLoaderRoute: typeof AuthPostLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/warehouses': {
       id: '/admin/warehouses'
       path: '/admin/warehouses'
@@ -301,6 +354,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/categories'
       fullPath: '/admin/categories'
       preLoaderRoute: typeof AdminCategoriesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/me/session': {
+      id: '/api/me/session'
+      path: '/api/me/session'
+      fullPath: '/api/me/session'
+      preLoaderRoute: typeof ApiMeSessionRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/me/dashboard': {
@@ -353,15 +413,18 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   PinRoute: PinRoute,
+  RegisterRoute: RegisterRoute,
   SalesRoute: SalesRoute,
   AdminCategoriesRoute: AdminCategoriesRoute,
   AdminInventoryRoute: AdminInventoryRoute,
   AdminProductsRoute: AdminProductsRouteWithChildren,
   AdminPurchasesRoute: AdminPurchasesRoute,
   AdminWarehousesRoute: AdminWarehousesRoute,
+  AuthPostLoginRoute: AuthPostLoginRoute,
   AdminIndexRoute: AdminIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiMeDashboardRoute: ApiMeDashboardRoute,
+  ApiMeSessionRoute: ApiMeSessionRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

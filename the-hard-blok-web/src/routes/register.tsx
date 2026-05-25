@@ -2,7 +2,12 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useLayoutEffect, useState } from 'react'
 
 import { InternalShell } from '../components/InternalShell'
-import { getTpvAppBaseUrl, getTpvRegisterPath, tpvAppUrl } from '../lib/tpv-app-url'
+import {
+  getTpvAppBaseUrl,
+  getTpvRegisterPath,
+  getWebReturnTo,
+  tpvAppUrl,
+} from '../lib/tpv-app-url'
 
 type RegisterSearch = {
   redirect?: string
@@ -19,10 +24,8 @@ function RegisterPage() {
   const { redirect } = Route.useSearch()
   const [failed, setFailed] = useState(false)
   const path = getTpvRegisterPath()
-  const target = tpvAppUrl(
-    path,
-    redirect ? { redirect } : undefined,
-  )
+  const returnTo = getWebReturnTo(redirect)
+  const target = tpvAppUrl(path, returnTo ? { returnTo } : undefined)
 
   useLayoutEffect(() => {
     try {
@@ -43,12 +46,11 @@ function RegisterPage() {
         </p>
         <p className="m-0 text-xs text-[var(--sea-ink-soft)]">
           <code>VITE_TPV_APP_URL</code> = <code>{getTpvAppBaseUrl()}</code> — registro en ruta{' '}
-          <code>{path}</code> (hasta que exista <code>/register</code> en el TPV suele ser el
-          mismo flujo que login, p. ej. Google).
+          <code>{path}</code> en el TPV (misma cuenta Google que el login).
         </p>
         <p>
           <a
-            href={tpvAppUrl('/login', redirect ? { redirect } : undefined)}
+            href={tpvAppUrl('/login', returnTo ? { returnTo } : undefined)}
             className="font-semibold text-[var(--lagoon-deep)] no-underline hover:underline"
           >
             Ir a iniciar sesión en el TPV

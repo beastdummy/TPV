@@ -27,7 +27,18 @@ export function getTpvRegisterPath(): string {
   if (typeof p === 'string' && p.startsWith('/')) {
     return p
   }
-  return '/login'
+  return '/register'
+}
+
+/** URL absoluta en esta web (p. ej. vuelta tras login en el TPV). */
+export function getWebReturnTo(pathOrUrl?: string): string | undefined {
+  if (!pathOrUrl) return undefined
+  if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+    return pathOrUrl
+  }
+  if (typeof window === 'undefined') return undefined
+  const path = pathOrUrl.startsWith('/') ? pathOrUrl : `/${pathOrUrl}`
+  return `${window.location.origin}${path}`
 }
 
 /**
